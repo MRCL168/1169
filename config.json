@@ -4,8 +4,8 @@
   "description": "Template CMS website berita profesional berbasis GitHub, ringan, mobile friendly, SEO-ready, mendukung mode terang dan gelap, serta memiliki slot iklan strategis.",
   "author": "Redaksi GitNews Pro",
   "language": "id",
-  "baseUrl": "https://mrcl168.github.io/gitnews-pro",
-  "basePath": "/",
+  "baseUrl": "https://bisnis.dimensinews.co.id",
+  "basePath": "",
   "postsPerPage": 12,
   "defaultOgImage": "/public/images/og-gitnews-pro.svg",
   "social": {
@@ -16,12 +16,30 @@
     "email": "redaksi@example.com"
   },
   "nav": [
-    { "label": "Beranda", "url": "/" },
-    { "label": "Nasional", "url": "/category/nasional/" },
-    { "label": "Bisnis", "url": "/category/bisnis/" },
-    { "label": "Teknologi", "url": "/category/teknologi/" },
-    { "label": "Lifestyle", "url": "/category/lifestyle/" },
-    { "label": "Tentang", "url": "/about/" }
+    {
+      "label": "Beranda",
+      "url": "/"
+    },
+    {
+      "label": "Nasional",
+      "url": "/category/nasional/"
+    },
+    {
+      "label": "Bisnis",
+      "url": "/category/bisnis/"
+    },
+    {
+      "label": "Teknologi",
+      "url": "/category/teknologi/"
+    },
+    {
+      "label": "Lifestyle",
+      "url": "/category/lifestyle/"
+    },
+    {
+      "label": "Tentang",
+      "url": "/about/"
+    }
   ],
   "footerText": "Template berita statis dengan konten Markdown yang tersimpan di GitHub."
 }
