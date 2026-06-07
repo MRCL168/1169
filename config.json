@@ -58,11 +58,6 @@
   "footerText": "© {year} {title}. Semua hak cipta dilindungi.",
   "categories": [
     {
-      "name": "Olahraga",
-      "slug": "olahraga",
-      "description": "Kabar olahraga, komunitas, dan pengembangan talenta muda."
-    },
-    {
       "name": "Transportasi",
       "slug": "transportasi",
       "description": "Transportasi publik, mobilitas kota, dan infrastruktur."
