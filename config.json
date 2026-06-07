@@ -123,13 +123,6 @@
         "enabled": false,
         "order": 1,
         "limit": 5
-      },
-      {
-        "category": "Bisnis",
-        "title": "Bisnis",
-        "enabled": false,
-        "order": 2,
-        "limit": 5
       }
     ]
   },
