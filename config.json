@@ -56,13 +56,7 @@
     }
   ],
   "footerText": "© {year} {title}. Semua hak cipta dilindungi.",
-  "categories": [
-    {
-      "name": "Travel",
-      "slug": "travel",
-      "description": "Wisata lokal, destinasi, dan cerita perjalanan."
-    }
-  ],
+  "categories": [],
   "ads": {
     "enabled": true,
     "slots": {
