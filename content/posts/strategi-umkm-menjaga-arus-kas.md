@@ -1,13 +1,14 @@
 ---
-title: "Strategi UMKM Menjaga Arus Kas di Tengah Perubahan Pola Belanja Konsumen"
-slug: "strategi-umkm-menjaga-arus-kas"
-date: "2026-06-06"
-author: "Desk Bisnis"
-category: "Bisnis"
-tags: [bisnis, umkm, keuangan]
-featured_image: "/public/images/news-bisnis.svg"
-excerpt: "Pelaku UMKM perlu membaca perubahan perilaku konsumen lebih cepat, terutama dalam pengelolaan stok, pencatatan transaksi, dan pemilihan kanal penjualan yang paling efektif."
-status: "published"
+title: Strategi UMKM Menjaga Arus Kas di Tengah Perubahan Pola Belanja Konsumen
+slug: strategi-umkm-menjaga-arus-kas
+date: 2026-06-06
+status: published
+highlight: true
+category: Bisnis
+author: Desk Bisnis
+tags: ["bisnis", "umkm", "keuangan"]
+excerpt: Pelaku UMKM perlu membaca perubahan perilaku konsumen lebih cepat, terutama dalam pengelolaan stok, pencatatan transaksi, dan pemilihan kanal penjualan yang paling efektif.
+featured_image: /public/images/news-bisnis.svg
 ---
 
 Perubahan pola belanja membuat pelaku UMKM perlu lebih disiplin dalam mengelola arus kas. Penjualan yang terlihat ramai belum tentu sehat jika pembayaran tertunda, stok terlalu besar, atau biaya promosi tidak terukur. Pada situasi seperti ini, pencatatan sederhana menjadi alat yang sangat penting.
