@@ -35,6 +35,63 @@ function makeUrlHelpers(config) {
   };
 }
 
+function isExternalAsset(path) {
+  return /^(https?:)?\/\//i.test(String(path || "")) || String(path || "").startsWith("data:");
+}
+
+function assetUrl(path, U) {
+  if (!path) return "";
+  return isExternalAsset(path) ? String(path) : U.url(path);
+}
+
+function assetAbs(path, U) {
+  if (!path) return "";
+  return isExternalAsset(path) ? String(path) : U.abs(path);
+}
+
+function safeJsonLd(data) {
+  return JSON.stringify(data)
+    .replace(/</g, "\\u003c")
+    .replace(/>/g, "\\u003e")
+    .replace(/&/g, "\\u0026");
+}
+
+function renderJsonLd(jsonLd) {
+  if (!jsonLd) return "";
+  const items = Array.isArray(jsonLd) ? jsonLd : [jsonLd];
+  return items
+    .filter(Boolean)
+    .map((item) => {
+      const content = typeof item === "string" ? item : safeJsonLd(item);
+      return `\n  <script type="application/ld+json">${content}</script>`;
+    })
+    .join("");
+}
+
+function siteIdentity(config = {}, U) {
+  const publisher = {
+    "@type": "NewsMediaOrganization",
+    "@id": U.abs("/#organization"),
+    name: config.title,
+    url: U.baseUrl + "/",
+  };
+  if (config.logo) {
+    publisher.logo = {
+      "@type": "ImageObject",
+      url: assetAbs(config.logo, U),
+    };
+  }
+  return publisher;
+}
+
+function isoDateTime(dateValue, config = {}) {
+  if (!dateValue) return "";
+  const raw = String(dateValue);
+  if (/T\d{2}:\d{2}/.test(raw)) return raw;
+  const offset = config.timezoneOffset || "+07:00";
+  return raw.slice(0, 10) + "T00:00:00" + offset;
+}
+
 function siteNav(config, U) {
   return (config.nav || [])
     .filter((n) => n && n.label && n.url)
@@ -129,6 +186,9 @@ function header(config, U, posts = []) {
   const ticker = latest
     ? `<a class="ticker-link" href="${attr(U.url(latest.permalink))}">${esc(latest.meta.title)}</a>`
     : `<span class="ticker-link">Update berita terbaru hari ini</span>`;
+  const logoImg = config.logo
+    ? `<img class="site-logo-img" src="${attr(assetUrl(config.logo, U))}" alt="${attr(config.title)}">`
+    : `<span class="site-logo-mark">${esc((config.title || 'G').trim().charAt(0).toUpperCase())}</span>`;
   return `
   <header class="site-header">
     <div class="top-strip">
@@ -142,7 +202,10 @@ function header(config, U, posts = []) {
     </div>
     <div class="main-header">
       <div class="container header-inner">
-        <a href="${attr(U.url('/'))}" class="site-logo" aria-label="${attr(config.title)}"><span>${esc(config.title)}</span><small>${esc(config.tagline || '')}</small></a>
+        <a href="${attr(U.url('/'))}" class="site-logo" aria-label="${attr(config.title)}">
+          ${logoImg}
+          <span class="site-logo-text"><strong>${esc(config.title)}</strong><small>${esc(config.tagline || '')}</small></span>
+        </a>
         <nav class="site-nav" aria-label="Navigasi utama">${siteNav(config, U)}</nav>
       </div>
     </div>
@@ -192,11 +255,22 @@ function baseLayout(opts) {
   const desc = attr(opts.description || config.description || "");
   const canonical = attr(opts.canonical || U.baseUrl + "/");
   const ogType = opts.ogType || "website";
-  const ogImage = opts.ogImage ? attr(opts.ogImage) : (config.defaultOgImage ? attr(U.abs(config.defaultOgImage)) : "");
-  const jsonLd = opts.jsonLd ? `\n  <script type="application/ld+json">${opts.jsonLd}</script>` : "";
+  const ogImage = opts.ogImage ? attr(opts.ogImage) : (config.defaultOgImage ? attr(assetAbs(config.defaultOgImage, U)) : "");
+  const faviconTag = config.favicon ? `
+  <link rel="icon" href="${attr(assetUrl(config.favicon, U))}">
+  <link rel="shortcut icon" href="${attr(assetUrl(config.favicon, U))}">` : "";
+  const jsonLd = renderJsonLd(opts.jsonLd);
+  const ogImageAlt = attr(opts.ogImageAlt || opts.title || config.title);
   const ogImageTags = ogImage
-    ? `\n  <meta property="og:image" content="${ogImage}">\n  <meta name="twitter:image" content="${ogImage}">`
+    ? `\n  <meta property="og:image" content="${ogImage}">\n  <meta property="og:image:alt" content="${ogImageAlt}">\n  <meta name="twitter:image" content="${ogImage}">\n  <meta name="twitter:image:alt" content="${ogImageAlt}">`
     : "";
+  const articleMeta = opts.articleMeta || null;
+  const articleMetaTags = articleMeta ? `
+  <meta property="article:published_time" content="${attr(articleMeta.publishedTime || '')}">
+  <meta property="article:modified_time" content="${attr(articleMeta.modifiedTime || articleMeta.publishedTime || '')}">
+  <meta property="article:author" content="${attr(articleMeta.author || config.author || '')}">
+  ${articleMeta.section ? `<meta property="article:section" content="${attr(articleMeta.section)}">` : ''}
+  ${(articleMeta.tags || []).map((tag) => `<meta property="article:tag" content="${attr(tag)}">`).join("\n  ")}` : "";
 
   return `<!DOCTYPE html>
 <html lang="${attr(config.language || 'id')}">
@@ -206,8 +280,9 @@ function baseLayout(opts) {
   <title>${title}</title>
   <meta name="description" content="${desc}">
   <link rel="canonical" href="${canonical}">
-  <meta name="robots" content="index, follow">
-  <meta name="theme-color" content="#0f172a">
+  <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
+  <meta name="googlebot" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
+  <meta name="theme-color" content="#0f172a">${faviconTag}${articleMetaTags}
 
   <meta property="og:type" content="${ogType}">
   <meta property="og:title" content="${attr(opts.title || config.title)}">
@@ -220,7 +295,9 @@ function baseLayout(opts) {
   <meta name="twitter:title" content="${attr(opts.title || config.title)}">
   <meta name="twitter:description" content="${desc}">
 
-  <link rel="alternate" type="application/rss+xml" title="${siteName}" href="${attr(U.url('/rss.xml'))}">
+  <link rel="alternate" type="application/rss+xml" title="${siteName}" href="${attr(U.abs('/rss.xml'))}">
+  <link rel="sitemap" type="application/xml" title="Sitemap" href="${attr(U.abs('/sitemap.xml'))}">
+  <link rel="sitemap" type="application/xml" title="Google News Sitemap" href="${attr(U.abs('/news-sitemap.xml'))}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Newsreader:opsz,wght@6..72,500;6..72,600;6..72,700&display=swap" rel="stylesheet">
@@ -262,7 +339,7 @@ function adSlot(key, name, size = "970 × 90", extraClass = "", config = {}) {
 
 function postImage(post, U, className = "") {
   if (post.featuredImage) {
-    return `<img src="${attr(U.url(post.featuredImage))}" alt="${attr(post.meta.title)}" loading="lazy">`;
+    return `<img src="${attr(assetUrl(post.featuredImage, U))}" alt="${attr(post.meta.title)}" loading="lazy">`;
   }
   const letter = (post.meta.category || post.meta.title || "N").trim().charAt(0).toUpperCase();
   return `<div class="thumb-placeholder ${className}"><span>${esc(letter)}</span></div>`;
@@ -279,10 +356,11 @@ function categoryPill(post, U, config = {}, className = "") {
 
 function featureCard(post, config, U) {
   if (!post) return "";
-  return `<article class="feature-card">
-    <a class="feature-image" href="${attr(U.url(post.permalink))}">${postImage(post, U)}</a>
+  return `<article class="feature-card feature-card-premium">
+    <a class="feature-image" href="${attr(U.url(post.permalink))}" aria-label="${attr(post.meta.title)}">${postImage(post, U)}</a>
+    <div class="feature-shade"></div>
     <div class="feature-content">
-      ${categoryPill(post, U, config)}
+      <div class="feature-label-row">${categoryPill(post, U, config)}<span>Headline Utama</span></div>
       <h1><a href="${attr(U.url(post.permalink))}">${esc(post.meta.title)}</a></h1>
       <p>${esc(post.excerpt)}</p>
       ${metaLine(post, config)}
@@ -389,10 +467,16 @@ function homeTemplate({ posts, allPosts, pageNum, totalPages, config, U }) {
   const content = `
     ${adSlot('header', 'Slot Iklan Header', '970 × 90', 'ad-top', config)}
     <section class="container home-hero">
-      <div class="hero-kicker"><span>Highlight News</span><p>Berita pilihan redaksi dan update terbaru.</p></div>
+      <div class="hero-kicker">
+        <div><span>Highlight News</span><h2>Berita Utama Pilihan Redaksi</h2></div>
+        <p>Headline penting, update terbaru, dan cerita yang sedang menjadi perhatian.</p>
+      </div>
       <div class="highlight-grid">
         ${featureCard(featured, config, U)}
-        <div class="highlight-side">${secondary.map((p) => compactHeadline(p, config, U)).join("")}</div>
+        <div class="highlight-side">
+          <div class="highlight-side-title">Pilihan Lainnya</div>
+          ${secondary.map((p) => compactHeadline(p, config, U)).join("")}
+        </div>
       </div>
     </section>
 
@@ -413,14 +497,37 @@ function homeTemplate({ posts, allPosts, pageNum, totalPages, config, U }) {
       ${groups.map((g, i) => categoryBlock(g, config, U, i)).join("")}
     </section>`;
 
-  const jsonLd = JSON.stringify({
-    "@context": "https://schema.org",
-    "@type": "NewsMediaOrganization",
-    name: config.title,
-    url: U.baseUrl + "/",
-    description: config.description,
-    inLanguage: config.language || "id",
-  });
+  const publisher = siteIdentity(config, U);
+  const jsonLd = [
+    {
+      "@context": "https://schema.org",
+      ...publisher,
+      description: config.description,
+      inLanguage: config.language || "id",
+      sameAs: Object.values(config.social || {}).filter((v) => typeof v === "string" && /^https?:\/\//i.test(v)),
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "@id": U.abs("/#website"),
+      name: config.title,
+      url: U.baseUrl + "/",
+      inLanguage: config.language || "id",
+      publisher: { "@id": U.abs("/#organization") },
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "ItemList",
+      "@id": U.abs("/#latest-news"),
+      name: "Berita terbaru",
+      itemListElement: fullList.slice(0, 10).map((post, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        url: U.abs(post.permalink),
+        name: post.meta.title,
+      })),
+    },
+  ];
 
   return baseLayout({
     config, U, allPosts: fullList,
@@ -490,18 +597,35 @@ function postTemplate({ post, config, U, related, allPosts }) {
     </article>
     ${relatedHtml}`;
 
+  const postTags = Array.isArray(post.meta.tags) ? post.meta.tags.filter(Boolean) : [];
+  const keywordSeen = new Set();
+  const keywordList = [post.meta.category, ...postTags].filter(Boolean).filter((item) => {
+    const key = String(item).toLowerCase();
+    if (keywordSeen.has(key)) return false;
+    keywordSeen.add(key);
+    return true;
+  });
+  const publisher = siteIdentity(config, U);
+  const articleImage = post.ogImage ? [post.ogImage] : [];
   const blogPosting = {
     "@context": "https://schema.org",
     "@type": "NewsArticle",
+    "@id": U.abs(post.permalink) + "#article",
     headline: post.meta.title,
+    alternativeHeadline: post.meta.subtitle || undefined,
     description: post.excerpt,
-    datePublished: post.meta.date,
-    dateModified: post.meta.updated || post.meta.date,
-    author: { "@type": "Person", name: post.meta.author || config.author },
-    publisher: { "@type": "Organization", name: config.title },
+    url: U.abs(post.permalink),
     mainEntityOfPage: { "@type": "WebPage", "@id": U.abs(post.permalink) },
+    isPartOf: { "@id": U.abs("/#website") },
+    datePublished: isoDateTime(post.meta.date, config),
+    dateModified: isoDateTime(post.meta.updated || post.meta.date, config),
+    author: [{ "@type": "Person", name: post.meta.author || config.author || "Redaksi" }],
+    publisher,
+    articleSection: post.meta.category || undefined,
+    keywords: keywordList.length ? keywordList.join(", ") : undefined,
+    wordCount: post.wordCount || undefined,
     inLanguage: config.language || "id",
-    ...(post.ogImage ? { image: post.ogImage } : {}),
+    ...(articleImage.length ? { image: articleImage, thumbnailUrl: articleImage[0] } : {}),
   };
   const breadcrumb = {
     "@context": "https://schema.org",
@@ -512,7 +636,7 @@ function postTemplate({ post, config, U, related, allPosts }) {
       { "@type": "ListItem", position: post.meta.category ? 3 : 2, name: post.meta.title, item: U.abs(post.permalink) },
     ],
   };
-  const jsonLd = JSON.stringify(blogPosting) + "</script>\n  <script type=\"application/ld+json\">" + JSON.stringify(breadcrumb);
+  const jsonLd = [blogPosting, breadcrumb];
 
   return baseLayout({
     config, U, allPosts: allPosts || [],
@@ -521,6 +645,14 @@ function postTemplate({ post, config, U, related, allPosts }) {
     canonical: U.abs(post.permalink),
     ogType: "article",
     ogImage: post.ogImage || "",
+    ogImageAlt: post.meta.title,
+    articleMeta: {
+      publishedTime: isoDateTime(post.meta.date, config),
+      modifiedTime: isoDateTime(post.meta.updated || post.meta.date, config),
+      author: post.meta.author || config.author || "Redaksi",
+      section: post.meta.category || "",
+      tags: postTags,
+    },
     jsonLd,
     content,
   });
@@ -608,4 +740,6 @@ module.exports = {
   formatDate,
   esc,
   attr,
+  assetUrl,
+  assetAbs,
 };

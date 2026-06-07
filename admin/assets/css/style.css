@@ -689,3 +689,41 @@ textarea { resize: vertical; line-height: 1.5; }
 @media (max-width: 1000px) {
   .ad-settings-grid { grid-template-columns: 1fr; }
 }
+
+/* ============================================================
+   LOGO & FAVICON SETTINGS
+   ============================================================ */
+.brand-asset-field {
+  gap: 10px;
+}
+.brand-preview,
+.favicon-preview {
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-soft);
+  min-height: 96px;
+  display: grid;
+  place-items: center;
+  padding: 14px;
+  overflow: hidden;
+}
+.brand-preview img {
+  max-width: 260px;
+  max-height: 82px;
+  object-fit: contain;
+}
+.favicon-preview {
+  width: 104px;
+  height: 104px;
+  min-height: 104px;
+}
+.favicon-preview img {
+  max-width: 64px;
+  max-height: 64px;
+  object-fit: contain;
+}
+.brand-preview-empty {
+  color: var(--ink-mute);
+  font-size: 13px;
+  font-weight: 700;
+}

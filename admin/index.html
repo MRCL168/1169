@@ -501,6 +501,39 @@
           </div>
 
           <div class="meta-card">
+            <h3 class="meta-card-title">Logo & Favicon</h3>
+            <div class="field brand-asset-field">
+              <label for="set-logo">Logo Website</label>
+              <div class="brand-preview" id="logo-preview-wrap">
+                <img id="logo-preview" class="hidden" src="" alt="Preview logo" />
+                <div id="logo-empty" class="brand-preview-empty">Belum ada logo</div>
+              </div>
+              <input type="text" id="set-logo" placeholder="/public/images/logo.png" />
+              <div class="featured-actions">
+                <button type="button" class="btn btn-primary btn-small" id="btn-upload-logo">Upload Logo</button>
+                <button type="button" class="btn btn-ghost btn-small" id="btn-clear-logo">Hapus</button>
+              </div>
+              <input type="file" id="logo-upload" class="visually-hidden-file" accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml" />
+              <small class="field-hint">Disarankan format PNG/SVG/WebP transparan. Logo akan tampil di header website.</small>
+            </div>
+
+            <div class="field brand-asset-field">
+              <label for="set-favicon">Favicon</label>
+              <div class="favicon-preview" id="favicon-preview-wrap">
+                <img id="favicon-preview" class="hidden" src="" alt="Preview favicon" />
+                <div id="favicon-empty" class="brand-preview-empty">Belum ada favicon</div>
+              </div>
+              <input type="text" id="set-favicon" placeholder="/public/images/favicon.png" />
+              <div class="featured-actions">
+                <button type="button" class="btn btn-primary btn-small" id="btn-upload-favicon">Upload Favicon</button>
+                <button type="button" class="btn btn-ghost btn-small" id="btn-clear-favicon">Hapus</button>
+              </div>
+              <input type="file" id="favicon-upload" class="visually-hidden-file" accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml,image/x-icon" />
+              <small class="field-hint">Disarankan ukuran 32×32 atau 512×512 px, format PNG/ICO/SVG.</small>
+            </div>
+          </div>
+
+          <div class="meta-card">
             <h3 class="meta-card-title">URL & Tampilan</h3>
             <div class="field">
               <label for="set-baseurl">Base URL</label>
@@ -516,6 +549,28 @@
               <label for="set-perpage">Artikel per Halaman</label>
               <input type="number" id="set-perpage" min="1" max="50" value="10" />
             </div>
+          </div>
+
+          <div class="meta-card">
+            <h3 class="meta-card-title">Google News & SEO</h3>
+            <div class="field">
+              <label for="set-news-publication">Nama Publikasi Google News</label>
+              <input type="text" id="set-news-publication" placeholder="Nama media sesuai Google News" />
+              <small class="field-hint">Isi sama persis dengan nama publikasi yang tampil di Google News / Publisher Center.</small>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label for="set-news-language">Bahasa News Sitemap</label>
+                <input type="text" id="set-news-language" placeholder="id" maxlength="8" />
+                <small class="field-hint">Gunakan kode ISO, contoh: id, en, zh-cn.</small>
+              </div>
+              <div class="field">
+                <label for="set-timezone-offset">Zona Waktu Artikel</label>
+                <input type="text" id="set-timezone-offset" placeholder="+07:00" />
+                <small class="field-hint">Dipakai untuk datePublished/dateModified JSON-LD.</small>
+              </div>
+            </div>
+            <p class="settings-note">Sistem otomatis membuat <code>news-sitemap.xml</code> berisi artikel 2 hari terakhir sesuai praktik Google News.</p>
           </div>
 
           <div class="meta-card">

@@ -136,6 +136,7 @@ function readMarkdownFiles(dir) {
         html: fixContentUrls(marked.parse(body)),
         excerpt: makeExcerpt(meta, body),
         readingTime: readingTime(body),
+        wordCount: stripMarkdown(body).split(/\s+/).filter(Boolean).length,
         featuredImage,
         ogImage,
       };
@@ -242,11 +243,14 @@ function build() {
   /* ---- sitemap.xml ---- */
   buildSitemap(posts, pages, categories, tags);
 
+  /* ---- news-sitemap.xml untuk Google News ---- */
+  buildNewsSitemap(posts);
+
   /* ---- rss.xml ---- */
   buildRss(posts);
 
   /* ---- robots.txt ---- */
-  writeRaw("robots.txt", `User-agent: *\nAllow: /\n\nSitemap: ${U.abs("/sitemap.xml")}\n`);
+  writeRaw("robots.txt", `User-agent: *\nAllow: /\n\nSitemap: ${U.abs("/sitemap.xml")}\nSitemap: ${U.abs("/news-sitemap.xml")}\n`);
 
   /* ---- Salin aset statis ---- */
   console.log("→ Menyalin aset (theme, admin, media)…");
@@ -274,9 +278,9 @@ function buildSitemap(posts, pages, categories, tags) {
     );
   };
 
-  add(U.abs("/"), null, "1.0");
-  posts.forEach((p) => add(U.abs(p.permalink), p.meta.date || null, "0.8"));
-  pages.forEach((p) => add(U.abs(p.permalink), null, "0.5"));
+  add(U.abs("/"), new Date().toISOString().slice(0, 10), "1.0");
+  posts.forEach((p) => add(U.abs(p.permalink), p.meta.updated || p.meta.date || null, "0.8"));
+  pages.forEach((p) => add(U.abs(p.permalink), p.meta.updated || p.meta.date || null, "0.5"));
   Object.keys(categories).forEach((c) => add(U.abs("/category/" + T.categorySlug(c, config) + "/"), null, "0.5"));
   Object.keys(tags).forEach((t) => add(U.abs("/tag/" + T.slugify(t) + "/"), null, "0.4"));
 
@@ -287,26 +291,70 @@ ${urls.join("\n")}
   writeRaw("sitemap.xml", xml);
 }
 
+function toDateOnly(value) {
+  if (!value) return null;
+  const d = new Date(String(value).slice(0, 10) + "T00:00:00Z");
+  return isNaN(d) ? null : d;
+}
+
+function isRecentForGoogleNews(post) {
+  if (post.meta.news === false || String(post.meta.news || "").toLowerCase() === "false") return false;
+  const d = toDateOnly(post.meta.date);
+  if (!d) return false;
+  const now = new Date();
+  const ageMs = now.getTime() - d.getTime();
+  return ageMs >= 0 && ageMs <= 2 * 24 * 60 * 60 * 1000;
+}
+
+function buildNewsSitemap(posts) {
+  const publicationName = (config.news && config.news.publicationName) || config.title;
+  const publicationLanguage = (config.news && config.news.language) || config.language || "id";
+  const items = posts
+    .filter(isRecentForGoogleNews)
+    .slice(0, 1000)
+    .map((p) => `  <url>
+    <loc>${T.esc(U.abs(p.permalink))}</loc>
+    <news:news>
+      <news:publication>
+        <news:name>${T.esc(publicationName)}</news:name>
+        <news:language>${T.esc(publicationLanguage)}</news:language>
+      </news:publication>
+      <news:publication_date>${T.esc(p.meta.date)}</news:publication_date>
+      <news:title>${T.esc(p.meta.title)}</news:title>
+    </news:news>
+  </url>`);
+
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:news="http://www.google.com/schemas/sitemap-news/0.9">
+${items.join("\n")}
+</urlset>`;
+  writeRaw("news-sitemap.xml", xml);
+}
+
 function buildRss(posts) {
   const items = posts
-    .slice(0, 20)
+    .slice(0, 50)
     .map((p) => {
       const pubDate = p.meta.date ? new Date(p.meta.date).toUTCString() : new Date().toUTCString();
+      const category = p.meta.category ? `\n      <category>${T.esc(p.meta.category)}</category>` : "";
+      const author = p.meta.author ? `\n      <dc:creator>${T.esc(p.meta.author)}</dc:creator>` : "";
       return `    <item>
       <title>${T.esc(p.meta.title)}</title>
       <link>${T.esc(U.abs(p.permalink))}</link>
-      <guid>${T.esc(U.abs(p.permalink))}</guid>
-      <pubDate>${pubDate}</pubDate>
+      <guid isPermaLink="true">${T.esc(U.abs(p.permalink))}</guid>
+      <pubDate>${pubDate}</pubDate>${author}${category}
       <description>${T.esc(p.excerpt)}</description>
     </item>`;
     })
     .join("\n");
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0">
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/">
   <channel>
     <title>${T.esc(config.title)}</title>
     <link>${T.esc(U.baseUrl)}/</link>
+    <atom:link href="${T.esc(U.abs('/rss.xml'))}" rel="self" type="application/rss+xml" />
     <description>${T.esc(config.description)}</description>
     <language>${T.esc(config.language || "id")}</language>
     <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>

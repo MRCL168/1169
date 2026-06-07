@@ -1,13 +1,15 @@
 {
-  "title": "Bisnis Dimensinews.co.id",
-  "tagline": "Portal Berita Bisnis",
+  "title": "GitNews Pro",
+  "tagline": "Portal Berita Berbasis GitHub CMS",
   "description": "Template CMS website berita profesional berbasis GitHub, ringan, mobile friendly, SEO-ready, mendukung mode terang dan gelap, serta memiliki slot iklan strategis.",
-  "author": "Redaksi Dimensinews",
+  "author": "Redaksi GitNews Pro",
   "language": "id",
-  "baseUrl": "https://bisnis.dimensinews.co.id",
-  "basePath": "/",
+  "baseUrl": "https://username.github.io/gitnews-pro",
+  "basePath": "/gitnews-pro",
   "postsPerPage": 12,
   "defaultOgImage": "/public/images/og-gitnews-pro.svg",
+  "logo": "",
+  "favicon": "",
   "social": {
     "twitter": "",
     "github": "username",
@@ -142,5 +144,10 @@
         "html": ""
       }
     }
-  }
+  },
+  "news": {
+    "publicationName": "GitNews Pro",
+    "language": "id"
+  },
+  "timezoneOffset": "+07:00"
 }

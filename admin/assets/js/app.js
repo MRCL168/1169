@@ -500,6 +500,8 @@ const App = (() => {
             <div class="media-actions">
               <button onclick="App.insertImage('${escapeHtml(relPath)}', '${escapeHtml(img.name)}')">Sisipkan</button>
               <button onclick="App.setFeaturedImage('${escapeHtml(relPath)}')">Jadikan Featured</button>
+              <button onclick="App.setLogoImage('${escapeHtml(relPath)}')">Jadikan Logo</button>
+              <button onclick="App.setFaviconImage('${escapeHtml(relPath)}')">Jadikan Favicon</button>
               <button onclick="App.copyText('${escapeHtml(relPath)}')">Salin path</button>
             </div>
           </div>
@@ -513,11 +515,13 @@ const App = (() => {
 
     const uploadTarget = options.target || "media";
     const shouldSetFeatured = uploadTarget === "featured" || options.setFeatured === true;
+    const shouldSetLogo = uploadTarget === "logo";
+    const shouldSetFavicon = uploadTarget === "favicon";
 
-    const allowedByMime = /^image\/(png|jpe?g|gif|webp|svg\+xml)$/i.test(file.type || "");
-    const allowedByExt = /\.(png|jpe?g|gif|webp|svg)$/i.test(file.name || "");
+    const allowedByMime = /^image\/(png|jpe?g|gif|webp|svg\+xml|x-icon|vnd\.microsoft\.icon)$/i.test(file.type || "");
+    const allowedByExt = /\.(png|jpe?g|gif|webp|svg|ico)$/i.test(file.name || "");
     if (!allowedByMime && !allowedByExt) {
-      toast("File harus berupa gambar PNG, JPG, GIF, WebP, atau SVG.", "error");
+      toast("File harus berupa gambar PNG, JPG, GIF, WebP, SVG, atau ICO.", "error");
       return null;
     }
     if (file.size > 5 * 1024 * 1024) {
@@ -525,7 +529,7 @@ const App = (() => {
       return null;
     }
 
-    showLoader(shouldSetFeatured ? "Mengunggah featured image…" : "Mengunggah gambar…");
+    showLoader(shouldSetFeatured ? "Mengunggah featured image…" : shouldSetLogo ? "Mengunggah logo…" : shouldSetFavicon ? "Mengunggah favicon…" : "Mengunggah gambar…");
     try {
       const base64 = await fileToBase64(file);
       const safeName = sanitizeFileName(file.name);
@@ -542,6 +546,12 @@ const App = (() => {
       if (shouldSetFeatured) {
         setFeaturedImage(publicPath);
         toast("Featured image berhasil diunggah dan dipasang.", "success");
+      } else if (shouldSetLogo) {
+        setBrandAsset("logo", publicPath);
+        toast("Logo berhasil diunggah dan dipasang.", "success");
+      } else if (shouldSetFavicon) {
+        setBrandAsset("favicon", publicPath);
+        toast("Favicon berhasil diunggah dan dipasang.", "success");
       } else {
         toast("Gambar berhasil diunggah ke repository.", "success");
 
@@ -669,6 +679,48 @@ const App = (() => {
     field.value = "";
     updateFeaturedImagePreview();
     toast("Featured image dikosongkan.", "info");
+  }
+
+  function updateBrandAssetPreview(type) {
+    const field = type === "favicon" ? $("#set-favicon") : $("#set-logo");
+    const img = type === "favicon" ? $("#favicon-preview") : $("#logo-preview");
+    const empty = type === "favicon" ? $("#favicon-empty") : $("#logo-empty");
+    if (!field || !img || !empty) return;
+    const value = field.value.trim();
+    if (!value) {
+      img.classList.add("hidden");
+      img.removeAttribute("src");
+      empty.classList.remove("hidden");
+      return;
+    }
+    img.src = imagePreviewUrl(value);
+    img.classList.remove("hidden");
+    empty.classList.add("hidden");
+  }
+
+  function setBrandAsset(type, path, options = {}) {
+    const field = type === "favicon" ? $("#set-favicon") : $("#set-logo");
+    if (!field) return;
+    field.value = normalizeImagePath(path);
+    updateBrandAssetPreview(type);
+    if (!options.noSwitch) showPanel("settings");
+    if (!options.silent) toast(type === "favicon" ? "Favicon dipasang ke pengaturan situs." : "Logo dipasang ke pengaturan situs.", "success");
+  }
+
+  function setLogoImage(path) {
+    setBrandAsset("logo", path);
+  }
+
+  function setFaviconImage(path) {
+    setBrandAsset("favicon", path);
+  }
+
+  function clearBrandAsset(type) {
+    const field = type === "favicon" ? $("#set-favicon") : $("#set-logo");
+    if (!field) return;
+    field.value = "";
+    updateBrandAssetPreview(type);
+    toast(type === "favicon" ? "Favicon dikosongkan." : "Logo dikosongkan.", "info");
   }
 
   function insertImage(path, name) {
@@ -1229,6 +1281,14 @@ const App = (() => {
       $("#set-baseurl").value = cfg.baseUrl || "";
       $("#set-basepath").value = cfg.basePath || "";
       $("#set-perpage").value = cfg.postsPerPage || 6;
+      $("#set-logo").value = cfg.logo || "";
+      $("#set-favicon").value = cfg.favicon || "";
+      updateBrandAssetPreview("logo");
+      updateBrandAssetPreview("favicon");
+      const news = cfg.news || {};
+      $("#set-news-publication").value = news.publicationName || cfg.title || "";
+      $("#set-news-language").value = news.language || cfg.language || "id";
+      $("#set-timezone-offset").value = cfg.timezoneOffset || "+07:00";
       $("#set-github").value = s.github || "";
       $("#set-twitter").value = s.twitter || "";
       $("#set-instagram").value = s.instagram || "";
@@ -1249,6 +1309,13 @@ const App = (() => {
     cfg.baseUrl = $("#set-baseurl").value.trim().replace(/\/+$/, "");
     cfg.basePath = $("#set-basepath").value.trim().replace(/\/+$/, "");
     cfg.postsPerPage = parseInt($("#set-perpage").value, 10) || 6;
+    cfg.logo = normalizeImagePath($("#set-logo").value.trim());
+    cfg.favicon = normalizeImagePath($("#set-favicon").value.trim());
+    cfg.news = Object.assign({}, cfg.news, {
+      publicationName: $("#set-news-publication").value.trim() || cfg.title,
+      language: $("#set-news-language").value.trim() || cfg.language || "id",
+    });
+    cfg.timezoneOffset = $("#set-timezone-offset").value.trim() || "+07:00";
     cfg.social = Object.assign({}, cfg.social, {
       github: $("#set-github").value.trim(),
       twitter: $("#set-twitter").value.trim(),
@@ -1338,6 +1405,20 @@ const App = (() => {
     $("#btn-refresh-ads").addEventListener("click", loadAds);
     $("#btn-save-ads").addEventListener("click", saveAds);
     $("#btn-save-settings").addEventListener("click", saveSettings);
+    $("#btn-upload-logo").addEventListener("click", () => $("#logo-upload").click());
+    $("#logo-upload").addEventListener("change", (e) => {
+      handleUpload(e.target.files[0], { target: "logo" });
+      e.target.value = "";
+    });
+    $("#btn-clear-logo").addEventListener("click", () => clearBrandAsset("logo"));
+    $("#set-logo").addEventListener("input", () => updateBrandAssetPreview("logo"));
+    $("#btn-upload-favicon").addEventListener("click", () => $("#favicon-upload").click());
+    $("#favicon-upload").addEventListener("change", (e) => {
+      handleUpload(e.target.files[0], { target: "favicon" });
+      e.target.value = "";
+    });
+    $("#btn-clear-favicon").addEventListener("click", () => clearBrandAsset("favicon"));
+    $("#set-favicon").addEventListener("input", () => updateBrandAssetPreview("favicon"));
     $("#btn-settings").addEventListener("click", () => {
       prefillSetup(null);
       const cfg = Config.getAll();
@@ -1416,6 +1497,8 @@ const App = (() => {
     askDelete,
     insertImage,
     setFeaturedImage,
+    setLogoImage,
+    setFaviconImage,
     copyText,
     editCategory,
     askDeleteCategory,
