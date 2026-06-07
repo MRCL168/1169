@@ -169,7 +169,7 @@
       {
         "category": "Teknologi",
         "title": "Teknologi",
-        "enabled": true,
+        "enabled": false,
         "order": 3,
         "limit": 5
       },
