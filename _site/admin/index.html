@@ -113,6 +113,15 @@
         <button class="nav-item" data-nav="editor">
           <span class="nav-icon">✎</span> Tulis Baru
         </button>
+        <button class="nav-item" data-nav="categories">
+          <span class="nav-icon">◇</span> Kategori
+        </button>
+        <button class="nav-item" data-nav="menus">
+          <span class="nav-icon">☰</span> Menu
+        </button>
+        <button class="nav-item" data-nav="ads">
+          <span class="nav-icon">▥</span> Iklan HTML
+        </button>
         <button class="nav-item" data-nav="media">
           <span class="nav-icon">▣</span> Media
         </button>
@@ -197,8 +206,10 @@
 
               <div class="field">
                 <label for="meta-category">Kategori</label>
-                <input type="text" id="meta-category" placeholder="cth: SEO" list="category-suggestions" />
-                <datalist id="category-suggestions"></datalist>
+                <select id="meta-category">
+                  <option value="">Pilih kategori</option>
+                </select>
+                <small class="field-hint">Kategori dapat ditambah atau dihapus melalui menu <strong>Kategori</strong>.</small>
               </div>
 
               <div class="field">
@@ -242,6 +253,197 @@
               <h3 class="meta-card-title">File</h3>
               <p class="meta-filename" id="editor-filename">—</p>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ---- PANEL: CATEGORIES ---- -->
+      <div id="panel-categories" class="panel hidden">
+        <header class="panel-header">
+          <div>
+            <h2 class="panel-title">Kategori</h2>
+            <p class="panel-sub">Tambah, ubah, atau hapus rubrik berita yang tersimpan di <code>config.json</code></p>
+          </div>
+          <div class="panel-actions">
+            <button class="btn btn-ghost btn-icon" id="btn-refresh-categories" title="Muat ulang">↻</button>
+          </div>
+        </header>
+
+        <div class="category-manager-grid">
+          <section class="meta-card">
+            <h3 class="meta-card-title" id="category-form-title">Tambah Kategori</h3>
+            <div class="field">
+              <label for="cat-name">Nama Kategori</label>
+              <input type="text" id="cat-name" placeholder="Contoh: Politik" />
+            </div>
+            <div class="field">
+              <label for="cat-slug">Slug URL</label>
+              <input type="text" id="cat-slug" placeholder="politik" />
+              <small class="field-hint">Slug otomatis dibuat dari nama kategori jika dikosongkan.</small>
+            </div>
+            <div class="field">
+              <label for="cat-description">Deskripsi Kategori</label>
+              <textarea id="cat-description" rows="4" placeholder="Ringkasan singkat untuk halaman arsip kategori…"></textarea>
+            </div>
+            <div class="category-form-actions">
+              <button class="btn btn-primary" id="btn-save-category" type="button">Simpan Kategori</button>
+              <button class="btn btn-ghost" id="btn-reset-category" type="button">Reset</button>
+            </div>
+            <p class="settings-note category-note">Perubahan kategori akan di-commit ke GitHub. Jika kategori dihapus, artikel yang sudah memakai kategori tersebut tidak ikut diubah otomatis.</p>
+          </section>
+
+          <section class="meta-card">
+            <h3 class="meta-card-title">Daftar Kategori</h3>
+            <div id="category-list" class="category-list-admin">
+              <!-- diisi oleh JS -->
+            </div>
+          </section>
+        </div>
+      </div>
+
+
+      <!-- ---- PANEL: MENUS ---- -->
+      <div id="panel-menus" class="panel hidden">
+        <header class="panel-header">
+          <div>
+            <h2 class="panel-title">Pengaturan Menu</h2>
+            <p class="panel-sub">Tambah, ubah, hapus, dan atur urutan menu navigasi utama dari <code>config.json</code></p>
+          </div>
+          <div class="panel-actions">
+            <button class="btn btn-ghost btn-icon" id="btn-refresh-menus" title="Muat ulang">↻</button>
+          </div>
+        </header>
+
+        <div class="category-manager-grid menu-manager-grid">
+          <section class="meta-card">
+            <h3 class="meta-card-title" id="menu-form-title">Tambah Menu</h3>
+            <div class="field">
+              <label for="menu-label">Label Menu</label>
+              <input type="text" id="menu-label" placeholder="Contoh: Nasional" />
+            </div>
+            <div class="field">
+              <label for="menu-url">URL Menu</label>
+              <input type="text" id="menu-url" placeholder="/category/nasional/ atau https://domain.com" />
+              <small class="field-hint">Gunakan path internal seperti <code>/about/</code> atau URL lengkap untuk link eksternal.</small>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label for="menu-order">Urutan</label>
+                <input type="number" id="menu-order" min="1" placeholder="1" />
+              </div>
+              <div class="field checkbox-field">
+                <label class="check-label">
+                  <input type="checkbox" id="menu-newtab" />
+                  <span>Buka di tab baru</span>
+                </label>
+              </div>
+            </div>
+            <div class="category-form-actions">
+              <button class="btn btn-primary" id="btn-save-menu" type="button">Simpan Menu</button>
+              <button class="btn btn-ghost" id="btn-reset-menu" type="button">Reset</button>
+            </div>
+            <p class="settings-note category-note">Menu akan tampil di navigasi header. Untuk menu kategori, pastikan URL mengarah ke <code>/category/slug-kategori/</code>.</p>
+          </section>
+
+          <section class="meta-card">
+            <h3 class="meta-card-title">Daftar Menu</h3>
+            <div id="menu-list" class="category-list-admin menu-list-admin">
+              <!-- diisi oleh JS -->
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <!-- ---- PANEL: ADS ---- -->
+      <div id="panel-ads" class="panel hidden">
+        <header class="panel-header">
+          <div>
+            <h2 class="panel-title">Pengaturan Iklan HTML</h2>
+            <p class="panel-sub">Masukkan kode HTML iklan manual, AdSense, banner affiliate, atau embed pihak ketiga. Semua data disimpan ke <code>config.json</code></p>
+          </div>
+          <div class="panel-actions">
+            <button class="btn btn-ghost btn-icon" id="btn-refresh-ads" title="Muat ulang">↻</button>
+            <button class="btn btn-primary" id="btn-save-ads">Simpan Iklan</button>
+          </div>
+        </header>
+
+        <div class="settings-wrap ads-settings-wrap">
+          <div class="meta-card">
+            <h3 class="meta-card-title">Status Iklan</h3>
+            <label class="check-label ads-master-toggle">
+              <input type="checkbox" id="ads-enabled" />
+              <span>Aktifkan semua slot iklan</span>
+            </label>
+            <p class="settings-note">Jika dimatikan, semua slot iklan tidak akan dirender di halaman publik walaupun kode HTML masih tersimpan.</p>
+          </div>
+
+          <div class="ad-settings-grid">
+            <section class="meta-card ad-setting-card">
+              <div class="ad-setting-head">
+                <h3 class="meta-card-title">Header Atas</h3>
+                <label class="check-label"><input type="checkbox" id="ad-header-enabled" /> <span>Aktif</span></label>
+              </div>
+              <p class="field-hint">Ukuran umum: 970×90. Muncul di homepage dan bagian atas halaman.</p>
+              <textarea id="ad-header-html" class="html-textarea" rows="6" placeholder="Tempel kode iklan HTML di sini..."></textarea>
+            </section>
+
+            <section class="meta-card ad-setting-card">
+              <div class="ad-setting-head">
+                <h3 class="meta-card-title">Sidebar</h3>
+                <label class="check-label"><input type="checkbox" id="ad-sidebar-enabled" /> <span>Aktif</span></label>
+              </div>
+              <p class="field-hint">Ukuran umum: 300×250. Muncul di sidebar homepage, artikel, dan arsip.</p>
+              <textarea id="ad-sidebar-html" class="html-textarea" rows="6" placeholder="Tempel kode iklan HTML di sini..."></textarea>
+            </section>
+
+            <section class="meta-card ad-setting-card">
+              <div class="ad-setting-head">
+                <h3 class="meta-card-title">Native / Sidebar Panjang</h3>
+                <label class="check-label"><input type="checkbox" id="ad-native-enabled" /> <span>Aktif</span></label>
+              </div>
+              <p class="field-hint">Ukuran umum: 300×600. Muncul di sidebar homepage.</p>
+              <textarea id="ad-native-html" class="html-textarea" rows="6" placeholder="Tempel kode iklan HTML di sini..."></textarea>
+            </section>
+
+            <section class="meta-card ad-setting-card">
+              <div class="ad-setting-head">
+                <h3 class="meta-card-title">Antar Rubrik</h3>
+                <label class="check-label"><input type="checkbox" id="ad-betweenCategories-enabled" /> <span>Aktif</span></label>
+              </div>
+              <p class="field-hint">Ukuran umum: 728×90. Muncul di antara blok kategori homepage.</p>
+              <textarea id="ad-betweenCategories-html" class="html-textarea" rows="6" placeholder="Tempel kode iklan HTML di sini..."></textarea>
+            </section>
+
+            <section class="meta-card ad-setting-card">
+              <div class="ad-setting-head">
+                <h3 class="meta-card-title">Atas Artikel</h3>
+                <label class="check-label"><input type="checkbox" id="ad-postTop-enabled" /> <span>Aktif</span></label>
+              </div>
+              <p class="field-hint">Ukuran umum: 970×90. Muncul sebelum judul/detail artikel.</p>
+              <textarea id="ad-postTop-html" class="html-textarea" rows="6" placeholder="Tempel kode iklan HTML di sini..."></textarea>
+            </section>
+
+            <section class="meta-card ad-setting-card">
+              <div class="ad-setting-head">
+                <h3 class="meta-card-title">Dalam Artikel</h3>
+                <label class="check-label"><input type="checkbox" id="ad-postContent-enabled" /> <span>Aktif</span></label>
+              </div>
+              <p class="field-hint">Ukuran umum: 728×90. Disisipkan otomatis setelah paragraf ketiga artikel.</p>
+              <textarea id="ad-postContent-html" class="html-textarea" rows="6" placeholder="Tempel kode iklan HTML di sini..."></textarea>
+            </section>
+
+            <section class="meta-card ad-setting-card">
+              <div class="ad-setting-head">
+                <h3 class="meta-card-title">Arsip / Kategori</h3>
+                <label class="check-label"><input type="checkbox" id="ad-archiveTop-enabled" /> <span>Aktif</span></label>
+              </div>
+              <p class="field-hint">Ukuran umum: 970×90. Muncul di halaman kategori dan tag.</p>
+              <textarea id="ad-archiveTop-html" class="html-textarea" rows="6" placeholder="Tempel kode iklan HTML di sini..."></textarea>
+            </section>
+          </div>
+
+          <div class="meta-card meta-card-muted">
+            <p class="settings-note">Catatan: kode iklan HTML akan dirender apa adanya di situs publik. Gunakan hanya kode dari sumber yang Anda percaya, misalnya Google AdSense atau penyedia iklan resmi.</p>
           </div>
         </div>
       </div>
@@ -299,6 +501,39 @@
           </div>
 
           <div class="meta-card">
+            <h3 class="meta-card-title">Logo & Favicon</h3>
+            <div class="field brand-asset-field">
+              <label for="set-logo">Logo Website</label>
+              <div class="brand-preview" id="logo-preview-wrap">
+                <img id="logo-preview" class="hidden" src="" alt="Preview logo" />
+                <div id="logo-empty" class="brand-preview-empty">Belum ada logo</div>
+              </div>
+              <input type="text" id="set-logo" placeholder="/public/images/logo.png" />
+              <div class="featured-actions">
+                <button type="button" class="btn btn-primary btn-small" id="btn-upload-logo">Upload Logo</button>
+                <button type="button" class="btn btn-ghost btn-small" id="btn-clear-logo">Hapus</button>
+              </div>
+              <input type="file" id="logo-upload" class="visually-hidden-file" accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml" />
+              <small class="field-hint">Disarankan format PNG/SVG/WebP transparan. Logo akan tampil di header website.</small>
+            </div>
+
+            <div class="field brand-asset-field">
+              <label for="set-favicon">Favicon</label>
+              <div class="favicon-preview" id="favicon-preview-wrap">
+                <img id="favicon-preview" class="hidden" src="" alt="Preview favicon" />
+                <div id="favicon-empty" class="brand-preview-empty">Belum ada favicon</div>
+              </div>
+              <input type="text" id="set-favicon" placeholder="/public/images/favicon.png" />
+              <div class="featured-actions">
+                <button type="button" class="btn btn-primary btn-small" id="btn-upload-favicon">Upload Favicon</button>
+                <button type="button" class="btn btn-ghost btn-small" id="btn-clear-favicon">Hapus</button>
+              </div>
+              <input type="file" id="favicon-upload" class="visually-hidden-file" accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml,image/x-icon" />
+              <small class="field-hint">Disarankan ukuran 32×32 atau 512×512 px, format PNG/ICO/SVG.</small>
+            </div>
+          </div>
+
+          <div class="meta-card">
             <h3 class="meta-card-title">URL & Tampilan</h3>
             <div class="field">
               <label for="set-baseurl">Base URL</label>
@@ -314,6 +549,28 @@
               <label for="set-perpage">Artikel per Halaman</label>
               <input type="number" id="set-perpage" min="1" max="50" value="10" />
             </div>
+          </div>
+
+          <div class="meta-card">
+            <h3 class="meta-card-title">Google News & SEO</h3>
+            <div class="field">
+              <label for="set-news-publication">Nama Publikasi Google News</label>
+              <input type="text" id="set-news-publication" placeholder="Nama media sesuai Google News" />
+              <small class="field-hint">Isi sama persis dengan nama publikasi yang tampil di Google News / Publisher Center.</small>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label for="set-news-language">Bahasa News Sitemap</label>
+                <input type="text" id="set-news-language" placeholder="id" maxlength="8" />
+                <small class="field-hint">Gunakan kode ISO, contoh: id, en, zh-cn.</small>
+              </div>
+              <div class="field">
+                <label for="set-timezone-offset">Zona Waktu Artikel</label>
+                <input type="text" id="set-timezone-offset" placeholder="+07:00" />
+                <small class="field-hint">Dipakai untuk datePublished/dateModified JSON-LD.</small>
+              </div>
+            </div>
+            <p class="settings-note">Sistem otomatis membuat <code>news-sitemap.xml</code> berisi artikel 2 hari terakhir sesuai praktik Google News.</p>
           </div>
 
           <div class="meta-card">

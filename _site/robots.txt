@@ -2,3 +2,4 @@ User-agent: *
 Allow: /
 
 Sitemap: https://username.github.io/gitnews-pro/sitemap.xml
+Sitemap: https://username.github.io/gitnews-pro/news-sitemap.xml
