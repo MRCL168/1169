@@ -1,0 +1,524 @@
+/* ============================================================
+   templates.js — Tema berita profesional untuk GitCMS News
+   Fitur: highlight news, blok kategori, slot iklan, mode terang/gelap,
+   SEO meta, Open Graph, Twitter Card, JSON-LD, RSS, kategori & tag.
+   ============================================================ */
+
+function esc(str) {
+  return String(str == null ? "" : str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+function attr(str) {
+  return String(str == null ? "" : str)
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function makeUrlHelpers(config) {
+  const basePath = (config.basePath || "").replace(/\/+$/, "");
+  const baseUrl = (config.baseUrl || "").replace(/\/+$/, "");
+  return {
+    url: (p) => {
+      const clean = "/" + String(p || "").replace(/^\/+/, "");
+      return (basePath + clean).replace(/\/{2,}/g, "/").replace(":/", "://");
+    },
+    abs: (p) => {
+      const clean = "/" + String(p || "").replace(/^\/+/, "");
+      return baseUrl + clean.replace(/\/{2,}/g, "/");
+    },
+    basePath,
+    baseUrl,
+  };
+}
+
+function siteNav(config, U) {
+  return (config.nav || [])
+    .map((n) => `<a href="${attr(U.url(n.url))}">${esc(n.label)}</a>`)
+    .join("");
+}
+
+function categoryNav(posts, U, limit = 7) {
+  const counts = {};
+  posts.forEach((p) => {
+    if (p.meta.category) counts[p.meta.category] = (counts[p.meta.category] || 0) + 1;
+  });
+  return Object.keys(counts)
+    .sort((a, b) => counts[b] - counts[a] || a.localeCompare(b))
+    .slice(0, limit)
+    .map((cat) => `<a href="${attr(U.url('/category/' + slugify(cat) + '/'))}">${esc(cat)}</a>`)
+    .join("");
+}
+
+function socialLinks(config) {
+  const s = config.social || {};
+  const items = [];
+  if (s.twitter) items.push(`<a href="https://twitter.com/${attr(s.twitter)}" aria-label="Twitter" rel="me noopener">X</a>`);
+  if (s.github) items.push(`<a href="https://github.com/${attr(s.github)}" aria-label="GitHub" rel="me noopener">GitHub</a>`);
+  if (s.instagram) items.push(`<a href="https://instagram.com/${attr(s.instagram)}" aria-label="Instagram" rel="me noopener">Instagram</a>`);
+  if (s.linkedin) items.push(`<a href="https://linkedin.com/in/${attr(s.linkedin)}" aria-label="LinkedIn" rel="me noopener">LinkedIn</a>`);
+  if (s.email) items.push(`<a href="mailto:${attr(s.email)}" aria-label="Email">Email</a>`);
+  return items.length ? `<div class="social-links">${items.join("")}</div>` : "";
+}
+
+function header(config, U, posts = []) {
+  const latest = posts && posts.length ? posts[0] : null;
+  const ticker = latest
+    ? `<a class="ticker-link" href="${attr(U.url(latest.permalink))}">${esc(latest.meta.title)}</a>`
+    : `<span class="ticker-link">Update berita terbaru hari ini</span>`;
+  return `
+  <header class="site-header">
+    <div class="top-strip">
+      <div class="container top-strip-inner">
+        <div class="breaking"><span class="breaking-label">Terbaru</span>${ticker}</div>
+        <div class="top-actions">
+          <a href="${attr(U.url('/rss.xml'))}">RSS</a>
+          <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Ganti mode terang atau gelap" aria-pressed="false"><span class="toggle-icon">◐</span><span class="toggle-text">Mode</span></button>
+        </div>
+      </div>
+    </div>
+    <div class="main-header">
+      <div class="container header-inner">
+        <a href="${attr(U.url('/'))}" class="site-logo" aria-label="${attr(config.title)}"><span>${esc(config.title)}</span><small>${esc(config.tagline || '')}</small></a>
+        <nav class="site-nav" aria-label="Navigasi utama">${siteNav(config, U)}</nav>
+      </div>
+    </div>
+    <div class="category-bar">
+      <div class="container category-bar-inner">
+        ${categoryNav(posts, U) || `<a href="${attr(U.url('/'))}">Berita Utama</a>`}
+      </div>
+    </div>
+  </header>`;
+}
+
+function footer(config, U, posts = []) {
+  const year = new Date().getFullYear();
+  return `
+  <footer class="site-footer">
+    <div class="container footer-grid">
+      <div>
+        <div class="footer-title">${esc(config.title)}</div>
+        <p class="footer-desc">${esc(config.description || config.tagline || '')}</p>
+        ${socialLinks(config)}
+      </div>
+      <div>
+        <h3>Rubrik</h3>
+        <div class="footer-links">${categoryNav(posts, U, 10) || siteNav(config, U)}</div>
+      </div>
+      <div>
+        <h3>Redaksi</h3>
+        <div class="footer-links">
+          <a href="${attr(U.url('/about/'))}">Tentang Kami</a>
+          <a href="${attr(U.url('/admin/'))}">Kelola Konten</a>
+          <a href="${attr(U.url('/sitemap.xml'))}">Sitemap</a>
+        </div>
+      </div>
+    </div>
+    <div class="container footer-bottom">
+      <span>© ${year} ${esc(config.author || config.title)}. ${esc(config.footerText || '')}</span>
+      <span>Powered by GitCMS News</span>
+    </div>
+  </footer>`;
+}
+
+function baseLayout(opts) {
+  const { config, U } = opts;
+  const posts = opts.allPosts || [];
+  const siteName = esc(config.title);
+  const title = opts.title ? `${esc(opts.title)} — ${siteName}` : siteName;
+  const desc = attr(opts.description || config.description || "");
+  const canonical = attr(opts.canonical || U.baseUrl + "/");
+  const ogType = opts.ogType || "website";
+  const ogImage = opts.ogImage ? attr(opts.ogImage) : (config.defaultOgImage ? attr(U.abs(config.defaultOgImage)) : "");
+  const jsonLd = opts.jsonLd ? `\n  <script type="application/ld+json">${opts.jsonLd}</script>` : "";
+  const ogImageTags = ogImage
+    ? `\n  <meta property="og:image" content="${ogImage}">\n  <meta name="twitter:image" content="${ogImage}">`
+    : "";
+
+  return `<!DOCTYPE html>
+<html lang="${attr(config.language || 'id')}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${title}</title>
+  <meta name="description" content="${desc}">
+  <link rel="canonical" href="${canonical}">
+  <meta name="robots" content="index, follow">
+  <meta name="theme-color" content="#0f172a">
+
+  <meta property="og:type" content="${ogType}">
+  <meta property="og:title" content="${attr(opts.title || config.title)}">
+  <meta property="og:description" content="${desc}">
+  <meta property="og:url" content="${canonical}">
+  <meta property="og:site_name" content="${siteName}">
+  <meta property="og:locale" content="${attr((config.language || 'id') === 'id' ? 'id_ID' : config.language)}">${ogImageTags}
+
+  <meta name="twitter:card" content="${ogImage ? 'summary_large_image' : 'summary'}">
+  <meta name="twitter:title" content="${attr(opts.title || config.title)}">
+  <meta name="twitter:description" content="${desc}">
+
+  <link rel="alternate" type="application/rss+xml" title="${siteName}" href="${attr(U.url('/rss.xml'))}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Newsreader:opsz,wght@6..72,500;6..72,600;6..72,700&display=swap" rel="stylesheet">
+  <script>(function(){try{var t=localStorage.getItem('gitcms-news-theme');if(t==='light'||t==='dark'){document.documentElement.dataset.theme=t;}}catch(e){}})();</script>
+  <link rel="stylesheet" href="${attr(U.url('/theme/style.css'))}">${jsonLd}
+</head>
+<body>
+${header(config, U, posts)}
+  <main class="site-main">
+${opts.content}
+  </main>
+${footer(config, U, posts)}
+<script src="${attr(U.url('/theme/site.js'))}" defer></script>
+</body>
+</html>`;
+}
+
+function adSlot(name, size = "970 × 90", extraClass = "") {
+  return `<aside class="ad-slot ${extraClass}" aria-label="Slot iklan ${attr(name)}"><span>Advertisement</span><strong>${esc(name)}</strong><small>${esc(size)}</small></aside>`;
+}
+
+function postImage(post, U, className = "") {
+  if (post.featuredImage) {
+    return `<img src="${attr(U.url(post.featuredImage))}" alt="${attr(post.meta.title)}" loading="lazy">`;
+  }
+  const letter = (post.meta.category || post.meta.title || "N").trim().charAt(0).toUpperCase();
+  return `<div class="thumb-placeholder ${className}"><span>${esc(letter)}</span></div>`;
+}
+
+function metaLine(post, config, withRead = true) {
+  return `<div class="meta-line"><time datetime="${attr(post.meta.date)}">${esc(formatDate(post.meta.date, config.language))}</time>${withRead ? `<span>•</span><span>${post.readingTime} menit baca</span>` : ""}</div>`;
+}
+
+function categoryPill(post, U, className = "") {
+  if (!post.meta.category) return "";
+  return `<a class="category-pill ${className}" href="${attr(U.url('/category/' + slugify(post.meta.category) + '/'))}">${esc(post.meta.category)}</a>`;
+}
+
+function featureCard(post, config, U) {
+  if (!post) return "";
+  return `<article class="feature-card">
+    <a class="feature-image" href="${attr(U.url(post.permalink))}">${postImage(post, U)}</a>
+    <div class="feature-content">
+      ${categoryPill(post, U)}
+      <h1><a href="${attr(U.url(post.permalink))}">${esc(post.meta.title)}</a></h1>
+      <p>${esc(post.excerpt)}</p>
+      ${metaLine(post, config)}
+    </div>
+  </article>`;
+}
+
+function compactHeadline(post, config, U) {
+  if (!post) return "";
+  return `<article class="compact-headline">
+    <a class="compact-thumb" href="${attr(U.url(post.permalink))}">${postImage(post, U)}</a>
+    <div>
+      ${categoryPill(post, U, 'tiny')}
+      <h2><a href="${attr(U.url(post.permalink))}">${esc(post.meta.title)}</a></h2>
+      ${metaLine(post, config, false)}
+    </div>
+  </article>`;
+}
+
+function postCard(post, config, U, style = "") {
+  return `<article class="post-card ${style}">
+    <a class="card-thumb" href="${attr(U.url(post.permalink))}">${postImage(post, U)}</a>
+    <div class="card-body">
+      ${categoryPill(post, U)}
+      <h2 class="card-title"><a href="${attr(U.url(post.permalink))}">${esc(post.meta.title)}</a></h2>
+      <p class="card-excerpt">${esc(post.excerpt)}</p>
+      ${metaLine(post, config)}
+    </div>
+  </article>`;
+}
+
+function textList(posts, config, U, title = "Berita Terbaru") {
+  if (!posts.length) return "";
+  return `<section class="sidebar-box">
+    <h2>${esc(title)}</h2>
+    <div class="text-news-list">
+      ${posts.map((p) => `<a href="${attr(U.url(p.permalink))}"><span>${esc(p.meta.title)}</span><small>${esc(formatDate(p.meta.date, config.language))}</small></a>`).join("")}
+    </div>
+  </section>`;
+}
+
+function getCategoryGroups(posts, limit = 6) {
+  const map = new Map();
+  posts.forEach((post) => {
+    const cat = post.meta.category || "Berita";
+    if (!map.has(cat)) map.set(cat, []);
+    map.get(cat).push(post);
+  });
+  return Array.from(map.entries())
+    .sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]))
+    .slice(0, limit)
+    .map(([name, list]) => ({ name, list }));
+}
+
+function categoryBlock(group, config, U, index) {
+  const [lead, ...rest] = group.list;
+  if (!lead) return "";
+  return `<section class="category-section">
+    <div class="section-heading">
+      <div><span>Rubrik</span><h2>${esc(group.name)}</h2></div>
+      <a href="${attr(U.url('/category/' + slugify(group.name) + '/'))}">Lihat semua</a>
+    </div>
+    <div class="category-layout">
+      ${postCard(lead, config, U, 'category-lead')}
+      <div class="category-list">
+        ${rest.slice(0, 4).map((p) => compactHeadline(p, config, U)).join("")}
+        ${rest.length === 0 ? `<p class="empty-note">Tambahkan artikel lain pada kategori ini melalui admin GitCMS.</p>` : ""}
+      </div>
+    </div>
+    ${index === 1 ? adSlot('Slot Iklan Antar Rubrik', '728 × 90', 'ad-between') : ''}
+  </section>`;
+}
+
+function homeTemplate({ posts, allPosts, pageNum, totalPages, config, U }) {
+  const fullList = allPosts && allPosts.length ? allPosts : posts;
+  const isFirst = pageNum === 1;
+
+  if (!isFirst) {
+    const cards = posts.map((p) => postCard(p, config, U)).join("");
+    return baseLayout({
+      config, U, allPosts: fullList,
+      title: `Berita — Halaman ${pageNum}`,
+      description: `Kumpulan berita halaman ${pageNum}.`,
+      canonical: U.abs('/page/' + pageNum + '/'),
+      content: `
+      <section class="page-head"><div class="container"><span>Arsip Berita</span><h1>Halaman ${pageNum}</h1></div></section>
+      <section class="container archive-grid-wrap"><div class="post-grid">${cards}</div>${pagination(pageNum, totalPages, U)}</section>`,
+    });
+  }
+
+  const featured = fullList[0];
+  const secondary = fullList.slice(1, 4);
+  const latest = fullList.slice(4, 12);
+  const groups = getCategoryGroups(fullList, 6);
+
+  const content = `
+    ${adSlot('Slot Iklan Header', '970 × 90', 'ad-top')}
+    <section class="container home-hero">
+      <div class="hero-kicker"><span>Highlight News</span><p>Berita pilihan redaksi dan update terbaru.</p></div>
+      <div class="highlight-grid">
+        ${featureCard(featured, config, U)}
+        <div class="highlight-side">${secondary.map((p) => compactHeadline(p, config, U)).join("")}</div>
+      </div>
+    </section>
+
+    <section class="container content-layout">
+      <div class="main-column">
+        <div class="section-heading"><div><span>Update</span><h2>Berita Terbaru</h2></div><a href="${attr(U.url('/page/2/'))}">Arsip</a></div>
+        <div class="latest-grid">${latest.map((p) => postCard(p, config, U)).join("")}</div>
+        ${pagination(pageNum, totalPages, U)}
+      </div>
+      <aside class="sidebar-column">
+        ${adSlot('Slot Iklan Sidebar', '300 × 250', 'ad-sidebar')}
+        ${textList(fullList.slice(0, 6), config, U, 'Terpopuler')}
+        ${adSlot('Slot Iklan Native', '300 × 600', 'ad-sidebar tall')}
+      </aside>
+    </section>
+
+    <section class="container category-blocks">
+      ${groups.map((g, i) => categoryBlock(g, config, U, i)).join("")}
+    </section>`;
+
+  const jsonLd = JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "NewsMediaOrganization",
+    name: config.title,
+    url: U.baseUrl + "/",
+    description: config.description,
+    inLanguage: config.language || "id",
+  });
+
+  return baseLayout({
+    config, U, allPosts: fullList,
+    title: "",
+    description: config.description,
+    canonical: U.baseUrl + "/",
+    ogType: "website",
+    jsonLd,
+    content,
+  });
+}
+
+function pagination(pageNum, totalPages, U) {
+  if (totalPages <= 1) return "";
+  const prev = pageNum > 1
+    ? `<a class="page-link" href="${attr(U.url(pageNum === 2 ? '/' : '/page/' + (pageNum - 1) + '/'))}">← Sebelumnya</a>`
+    : `<span class="page-link disabled">← Sebelumnya</span>`;
+  const next = pageNum < totalPages
+    ? `<a class="page-link" href="${attr(U.url('/page/' + (pageNum + 1) + '/'))}">Berikutnya →</a>`
+    : `<span class="page-link disabled">Berikutnya →</span>`;
+  return `<nav class="pagination">${prev}<span>Halaman ${pageNum} dari ${totalPages}</span>${next}</nav>`;
+}
+
+function injectAd(html) {
+  const marker = "</p>";
+  let count = 0;
+  return html.replace(/<\/p>/g, (m) => {
+    count += 1;
+    if (count === 3) return m + adSlot('Slot Iklan Dalam Artikel', '728 × 90', 'ad-in-content');
+    return m;
+  });
+}
+
+function postTemplate({ post, config, U, related, allPosts }) {
+  const tags = Array.isArray(post.meta.tags) && post.meta.tags.length
+    ? `<div class="post-tags">${post.meta.tags.map((t) => `<a href="${attr(U.url('/tag/' + slugify(t) + '/'))}">#${esc(t)}</a>`).join("")}</div>`
+    : "";
+
+  const relatedHtml = related && related.length
+    ? `<section class="related-section"><div class="container"><div class="section-heading"><div><span>Baca Juga</span><h2>Artikel Terkait</h2></div></div><div class="related-grid">${related.map((p) => postCard(p, config, U)).join("")}</div></div></section>`
+    : "";
+
+  const content = `
+    ${adSlot('Slot Iklan Atas Artikel', '970 × 90', 'ad-top')}
+    <article class="post-detail">
+      <div class="container post-head-wrap">
+        <header class="post-header">
+          ${categoryPill(post, U)}
+          <h1>${esc(post.meta.title)}</h1>
+          <p>${esc(post.excerpt)}</p>
+          <div class="post-byline">
+            ${post.meta.author ? `<span>Oleh <strong>${esc(post.meta.author)}</strong></span><span>•</span>` : ""}
+            <time datetime="${attr(post.meta.date)}">${esc(formatDate(post.meta.date, config.language))}</time><span>•</span><span>${post.readingTime} menit baca</span>
+          </div>
+        </header>
+      </div>
+      <figure class="post-cover">${postImage(post, U)}</figure>
+      <div class="container article-layout">
+        <div class="article-main">
+          <div class="post-content">${injectAd(post.html)}</div>
+          ${tags}
+        </div>
+        <aside class="article-sidebar">
+          ${adSlot('Slot Iklan Artikel', '300 × 250', 'ad-sidebar')}
+          ${textList((allPosts || []).filter((p) => p.slug !== post.slug).slice(0, 5), config, U, 'Berita Pilihan')}
+        </aside>
+      </div>
+    </article>
+    ${relatedHtml}`;
+
+  const blogPosting = {
+    "@context": "https://schema.org",
+    "@type": "NewsArticle",
+    headline: post.meta.title,
+    description: post.excerpt,
+    datePublished: post.meta.date,
+    dateModified: post.meta.updated || post.meta.date,
+    author: { "@type": "Person", name: post.meta.author || config.author },
+    publisher: { "@type": "Organization", name: config.title },
+    mainEntityOfPage: { "@type": "WebPage", "@id": U.abs(post.permalink) },
+    inLanguage: config.language || "id",
+    ...(post.ogImage ? { image: post.ogImage } : {}),
+  };
+  const breadcrumb = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Beranda", item: U.baseUrl + "/" },
+      ...(post.meta.category ? [{ "@type": "ListItem", position: 2, name: post.meta.category, item: U.abs('/category/' + slugify(post.meta.category) + '/') }] : []),
+      { "@type": "ListItem", position: post.meta.category ? 3 : 2, name: post.meta.title, item: U.abs(post.permalink) },
+    ],
+  };
+  const jsonLd = JSON.stringify(blogPosting) + "</script>\n  <script type=\"application/ld+json\">" + JSON.stringify(breadcrumb);
+
+  return baseLayout({
+    config, U, allPosts: allPosts || [],
+    title: post.meta.title,
+    description: post.excerpt,
+    canonical: U.abs(post.permalink),
+    ogType: "article",
+    ogImage: post.ogImage || "",
+    jsonLd,
+    content,
+  });
+}
+
+function archiveTemplate({ kind, term, posts, config, U, allPosts }) {
+  const label = kind === "category" ? "Kategori" : "Tag";
+  const cards = posts.map((p) => postCard(p, config, U)).join("");
+  const content = `
+    <section class="page-head">
+      <div class="container"><span>${esc(label)}</span><h1>${esc(term)}</h1><p>${posts.length} artikel tersedia.</p></div>
+    </section>
+    ${adSlot('Slot Iklan Arsip', '970 × 90', 'ad-top')}
+    <section class="container content-layout archive-layout">
+      <div class="main-column"><div class="post-grid">${cards}</div></div>
+      <aside class="sidebar-column">${adSlot('Slot Iklan Sidebar Arsip', '300 × 250', 'ad-sidebar')}${textList((allPosts || posts).slice(0, 6), config, U, 'Terbaru')}</aside>
+    </section>`;
+
+  return baseLayout({
+    config, U, allPosts: allPosts || posts,
+    title: `${label}: ${term}`,
+    description: `Kumpulan artikel dalam ${label.toLowerCase()} ${term}.`,
+    canonical: U.abs('/' + kind + '/' + slugify(term) + '/'),
+    ogType: "website",
+    content,
+  });
+}
+
+function pageTemplate({ page, config, U, allPosts }) {
+  const content = `
+    <article class="page-detail">
+      <div class="container post-head-wrap">
+        <header class="post-header page-only"><h1>${esc(page.meta.title)}</h1></header>
+      </div>
+      <div class="container post-narrow"><div class="post-content">${page.html}</div></div>
+    </article>`;
+
+  return baseLayout({
+    config, U, allPosts: allPosts || [],
+    title: page.meta.title,
+    description: page.meta.excerpt || page.meta.title,
+    canonical: U.abs(page.permalink),
+    ogType: "website",
+    content,
+  });
+}
+
+function notFoundTemplate({ config, U, allPosts }) {
+  const content = `<section class="error-page container"><h1>404</h1><p>Halaman yang Anda cari tidak ditemukan.</p><a href="${attr(U.url('/'))}" class="btn-home">Kembali ke Beranda</a></section>`;
+  return baseLayout({ config, U, allPosts: allPosts || [], title: "404", description: "Halaman tidak ditemukan", content });
+}
+
+function slugify(text) {
+  return String(text)
+    .toLowerCase()
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\w\s-]/g, "")
+    .replace(/[\s_-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function formatDate(dateStr, lang) {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  if (isNaN(d)) return dateStr;
+  const months = (lang || "id") === "id"
+    ? ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
+    : ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+module.exports = {
+  makeUrlHelpers,
+  baseLayout,
+  homeTemplate,
+  postTemplate,
+  archiveTemplate,
+  pageTemplate,
+  notFoundTemplate,
+  slugify,
+  formatDate,
+  esc,
+  attr,
+};

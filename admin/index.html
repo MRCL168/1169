@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GitCMS — GitHub-Powered CMS</title>
+  <meta name="description" content="CMS ringan berbasis GitHub API. Kelola konten Markdown langsung dari repository GitHub Anda." />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <!-- EasyMDE Markdown Editor -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.css" />
+
+  <!-- App Styles -->
+  <link rel="stylesheet" href="assets/css/style.css" />
+</head>
+<body>
+
+  <!-- ============ TOAST NOTIFICATIONS ============ -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- ============ LOADING OVERLAY ============ -->
+  <div id="loader" class="loader hidden">
+    <div class="loader-spinner"></div>
+    <span id="loader-text">Memuat…</span>
+  </div>
+
+  <!-- ============ VIEW: LOGIN ============ -->
+  <section id="view-login" class="view auth-screen">
+    <div class="auth-card">
+      <div class="auth-brand">
+        <div class="brand-mark">⌥</div>
+        <h1 class="brand-name">GitCMS</h1>
+      </div>
+      <p class="auth-tagline">Kelola konten langsung dari repository GitHub Anda. Tanpa database, tanpa server.</p>
+
+      <div class="field">
+        <label for="input-token">GitHub Personal Access Token</label>
+        <input type="password" id="input-token" placeholder="github_pat_xxxxxxxxxxxx atau ghp_xxxxxxxx" autocomplete="off" />
+        <small class="field-hint">Token disimpan lokal di browser Anda, tidak pernah dikirim ke pihak ketiga.</small>
+      </div>
+
+      <button id="btn-login" class="btn btn-primary btn-block">
+        <span>Hubungkan ke GitHub</span>
+      </button>
+
+      <details class="auth-help">
+        <summary>Cara membuat token →</summary>
+        <ol>
+          <li>Buka <strong>GitHub → Settings → Developer settings</strong></li>
+          <li>Pilih <strong>Personal access tokens → Fine-grained tokens</strong></li>
+          <li>Klik <strong>Generate new token</strong></li>
+          <li>Beri akses ke repository CMS Anda</li>
+          <li>Pada <strong>Repository permissions</strong>, set <strong>Contents</strong> ke <strong>Read and write</strong></li>
+          <li>Salin token, lalu tempel di atas</li>
+        </ol>
+      </details>
+    </div>
+    <footer class="auth-footer">Data Anda tetap menjadi milik Anda — semua tersimpan di repo GitHub.</footer>
+  </section>
+
+  <!-- ============ VIEW: SETUP REPO ============ -->
+  <section id="view-setup" class="view auth-screen hidden">
+    <div class="auth-card">
+      <div class="auth-brand">
+        <div class="brand-mark">⌥</div>
+        <h1 class="brand-name">Konfigurasi Repository</h1>
+      </div>
+      <p class="auth-tagline">Tentukan repository tempat konten Anda akan disimpan.</p>
+
+      <div class="user-pill" id="setup-user-pill"></div>
+
+      <div class="field">
+        <label for="input-owner">Owner / Username</label>
+        <input type="text" id="input-owner" placeholder="cth: hendri-dev" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label for="input-repo">Nama Repository</label>
+        <input type="text" id="input-repo" placeholder="cth: my-content" autocomplete="off" />
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="input-branch">Branch</label>
+          <input type="text" id="input-branch" value="main" autocomplete="off" />
+        </div>
+        <div class="field">
+          <label for="input-path">Folder Konten</label>
+          <input type="text" id="input-path" value="content/posts" autocomplete="off" />
+        </div>
+      </div>
+
+      <button id="btn-save-config" class="btn btn-primary btn-block">Simpan & Lanjutkan</button>
+      <button id="btn-logout-setup" class="btn btn-ghost btn-block">Keluar</button>
+    </div>
+  </section>
+
+  <!-- ============ VIEW: DASHBOARD ============ -->
+  <section id="view-app" class="view app-shell hidden">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-mark">⌥</div>
+        <span class="brand-name">GitCMS</span>
+      </div>
+
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-nav="list">
+          <span class="nav-icon">▤</span> Artikel
+        </button>
+        <button class="nav-item" data-nav="editor">
+          <span class="nav-icon">✎</span> Tulis Baru
+        </button>
+        <button class="nav-item" data-nav="media">
+          <span class="nav-icon">▣</span> Media
+        </button>
+        <button class="nav-item" data-nav="settings">
+          <span class="nav-icon">◐</span> Pengaturan Situs
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="repo-badge" id="repo-badge"></div>
+        <button class="nav-item" id="btn-settings">
+          <span class="nav-icon">⚙</span> Pengaturan
+        </button>
+        <button class="nav-item" id="btn-logout">
+          <span class="nav-icon">⏻</span> Keluar
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main content area -->
+    <main class="main-area">
+
+      <!-- ---- PANEL: ARTICLE LIST ---- -->
+      <div id="panel-list" class="panel">
+        <header class="panel-header">
+          <div>
+            <h2 class="panel-title">Artikel</h2>
+            <p class="panel-sub" id="list-count">Memuat…</p>
+          </div>
+          <div class="panel-actions">
+            <button class="btn btn-ghost btn-icon" id="btn-refresh" title="Muat ulang">↻</button>
+            <button class="btn btn-primary" id="btn-new-article">+ Tulis Baru</button>
+          </div>
+        </header>
+
+        <div class="search-bar">
+          <input type="text" id="search-input" placeholder="Cari artikel berdasarkan judul atau slug…" />
+        </div>
+
+        <div id="article-list" class="article-list">
+          <!-- diisi oleh JS -->
+        </div>
+      </div>
+
+      <!-- ---- PANEL: EDITOR ---- -->
+      <div id="panel-editor" class="panel hidden">
+        <header class="panel-header">
+          <div>
+            <h2 class="panel-title" id="editor-title">Tulis Artikel Baru</h2>
+            <p class="panel-sub" id="editor-sub">Markdown akan disimpan sebagai file .md di repo Anda</p>
+          </div>
+          <div class="panel-actions">
+            <button class="btn btn-ghost" id="btn-cancel-edit">Batal</button>
+            <button class="btn btn-primary" id="btn-save-article">Simpan & Commit</button>
+          </div>
+        </header>
+
+        <div class="editor-grid">
+          <!-- Editor utama -->
+          <div class="editor-main">
+            <input type="text" id="meta-title" class="title-input" placeholder="Judul artikel…" />
+            <textarea id="markdown-editor"></textarea>
+          </div>
+
+          <!-- Sidebar metadata -->
+          <div class="editor-meta">
+            <div class="meta-card">
+              <h3 class="meta-card-title">Metadata</h3>
+
+              <div class="field">
+                <label for="meta-slug">Slug (URL)</label>
+                <input type="text" id="meta-slug" placeholder="judul-artikel" />
+              </div>
+
+              <div class="field">
+                <label for="meta-status">Status</label>
+                <select id="meta-status">
+                  <option value="published">Published</option>
+                  <option value="draft">Draft</option>
+                </select>
+              </div>
+
+              <div class="field">
+                <label for="meta-category">Kategori</label>
+                <input type="text" id="meta-category" placeholder="cth: SEO" list="category-suggestions" />
+                <datalist id="category-suggestions"></datalist>
+              </div>
+
+              <div class="field">
+                <label for="meta-date">Tanggal</label>
+                <input type="date" id="meta-date" />
+              </div>
+
+              <div class="field">
+                <label for="meta-author">Penulis</label>
+                <input type="text" id="meta-author" placeholder="Nama penulis" />
+              </div>
+
+              <div class="field">
+                <label for="meta-tags">Tags (pisah dengan koma)</label>
+                <input type="text" id="meta-tags" placeholder="seo, wordpress, tutorial" />
+              </div>
+
+              <div class="field">
+                <label for="meta-excerpt">Excerpt / Deskripsi</label>
+                <textarea id="meta-excerpt" rows="3" placeholder="Ringkasan singkat untuk SEO…"></textarea>
+              </div>
+
+              <div class="field field-featured-image">
+                <label for="meta-image">Featured Image</label>
+                <div class="featured-preview" id="featured-image-preview-wrap">
+                  <img id="featured-image-preview" class="hidden" src="" alt="Preview featured image" />
+                  <div id="featured-image-empty" class="featured-preview-empty">Belum ada gambar cover</div>
+                </div>
+                <input type="text" id="meta-image" placeholder="/public/images/foto.jpg" />
+                <div class="featured-actions">
+                  <button type="button" class="btn btn-primary btn-small" id="btn-upload-featured-image">Upload Featured Image</button>
+                  <button type="button" class="btn btn-ghost btn-small" id="btn-open-media-for-featured">Pilih dari Media</button>
+                  <button type="button" class="btn btn-ghost btn-small" id="btn-clear-featured-image">Hapus</button>
+                </div>
+                <input type="file" id="featured-image-upload" class="visually-hidden-file" accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml" />
+                <small class="field-hint">Gambar akan diupload ke <code>public/images/</code> dan path-nya otomatis masuk ke frontmatter <code>featured_image</code>.</small>
+              </div>
+            </div>
+
+            <div class="meta-card meta-card-muted">
+              <h3 class="meta-card-title">File</h3>
+              <p class="meta-filename" id="editor-filename">—</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ---- PANEL: MEDIA ---- -->
+      <div id="panel-media" class="panel hidden">
+        <header class="panel-header">
+          <div>
+            <h2 class="panel-title">Media</h2>
+            <p class="panel-sub" id="media-sub">Gambar disimpan di folder public/images/</p>
+          </div>
+          <div class="panel-actions">
+            <button class="btn btn-ghost btn-icon" id="btn-refresh-media" title="Muat ulang">↻</button>
+            <button class="btn btn-primary" id="btn-upload-media" type="button">+ Upload Gambar</button>
+            <input type="file" id="media-upload" class="visually-hidden-file" accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml" />
+          </div>
+        </header>
+
+        <div id="media-grid" class="media-grid">
+          <!-- diisi oleh JS -->
+        </div>
+      </div>
+
+      <!-- ---- PANEL: SITE SETTINGS ---- -->
+      <div id="panel-settings" class="panel hidden">
+        <header class="panel-header">
+          <div>
+            <h2 class="panel-title">Pengaturan Situs</h2>
+            <p class="panel-sub">Mengubah <code>config.json</code> — identitas & tampilan blog Anda</p>
+          </div>
+          <div class="panel-actions">
+            <button class="btn btn-primary" id="btn-save-settings">Simpan Pengaturan</button>
+          </div>
+        </header>
+
+        <div class="settings-wrap">
+          <div class="meta-card">
+            <h3 class="meta-card-title">Identitas</h3>
+            <div class="field">
+              <label for="set-title">Judul Blog</label>
+              <input type="text" id="set-title" placeholder="Blog Saya" />
+            </div>
+            <div class="field">
+              <label for="set-tagline">Tagline</label>
+              <input type="text" id="set-tagline" placeholder="Catatan tentang teknologi…" />
+            </div>
+            <div class="field">
+              <label for="set-description">Deskripsi (untuk SEO)</label>
+              <textarea id="set-description" rows="2" placeholder="Deskripsi situs untuk mesin pencari…"></textarea>
+            </div>
+            <div class="field">
+              <label for="set-author">Nama Penulis</label>
+              <input type="text" id="set-author" placeholder="Nama Anda" />
+            </div>
+          </div>
+
+          <div class="meta-card">
+            <h3 class="meta-card-title">URL & Tampilan</h3>
+            <div class="field">
+              <label for="set-baseurl">Base URL</label>
+              <input type="text" id="set-baseurl" placeholder="https://username.github.io/blog-cms" />
+              <small class="field-hint">Alamat lengkap situs Anda (untuk canonical & sitemap).</small>
+            </div>
+            <div class="field">
+              <label for="set-basepath">Base Path</label>
+              <input type="text" id="set-basepath" placeholder="/blog-cms" />
+              <small class="field-hint">Kosongkan jika pakai domain sendiri / situs user (username.github.io).</small>
+            </div>
+            <div class="field">
+              <label for="set-perpage">Artikel per Halaman</label>
+              <input type="number" id="set-perpage" min="1" max="50" value="10" />
+            </div>
+          </div>
+
+          <div class="meta-card">
+            <h3 class="meta-card-title">Media Sosial</h3>
+            <div class="field-row">
+              <div class="field">
+                <label for="set-github">GitHub</label>
+                <input type="text" id="set-github" placeholder="username" />
+              </div>
+              <div class="field">
+                <label for="set-twitter">Twitter / X</label>
+                <input type="text" id="set-twitter" placeholder="username" />
+              </div>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label for="set-instagram">Instagram</label>
+                <input type="text" id="set-instagram" placeholder="username" />
+              </div>
+              <div class="field">
+                <label for="set-linkedin">LinkedIn</label>
+                <input type="text" id="set-linkedin" placeholder="username" />
+              </div>
+            </div>
+            <div class="field">
+              <label for="set-email">Email</label>
+              <input type="text" id="set-email" placeholder="email@contoh.com" />
+            </div>
+          </div>
+
+          <div class="meta-card meta-card-muted">
+            <p class="settings-note">💡 Setelah disimpan, GitHub Actions akan otomatis membangun ulang situs. Tunggu 1–2 menit lalu muat ulang halaman publik.</p>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </section>
+
+  <!-- ============ MODAL: CONFIRM ============ -->
+  <div id="modal-confirm" class="modal-overlay hidden">
+    <div class="modal">
+      <h3 id="modal-title">Konfirmasi</h3>
+      <p id="modal-message">Apakah Anda yakin?</p>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="modal-cancel">Batal</button>
+        <button class="btn btn-danger" id="modal-confirm-btn">Hapus</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ SCRIPTS ============ -->
+  <script src="https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.js"></script>
+  <script src="assets/js/config.js"></script>
+  <script src="assets/js/auth.js"></script>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/editor.js"></script>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>
