@@ -151,13 +151,6 @@
         "enabled": false,
         "order": 5,
         "limit": 5
-      },
-      {
-        "category": "Transportasi",
-        "title": "Transportasi",
-        "enabled": false,
-        "order": 6,
-        "limit": 5
       }
     ]
   },
