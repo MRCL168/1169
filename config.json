@@ -130,13 +130,6 @@
         "enabled": false,
         "order": 2,
         "limit": 5
-      },
-      {
-        "category": "Teknologi",
-        "title": "Teknologi",
-        "enabled": false,
-        "order": 3,
-        "limit": 5
       }
     ]
   },
