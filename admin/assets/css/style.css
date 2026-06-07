@@ -727,3 +727,24 @@ textarea { resize: vertical; line-height: 1.5; }
   font-size: 13px;
   font-weight: 700;
 }
+
+/* ---------- V7: Highlight & homepage category block controls ---------- */
+.status-highlight {
+  background: #fff1c2;
+  color: #8a5a00;
+}
+.highlight-checkbox-field {
+  display: block;
+  padding: 12px 13px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  background: #fffaf0;
+}
+.category-count-pill.is-on {
+  background: #dff6ec;
+  color: #0f6a43;
+}
+.category-count-pill.is-off {
+  background: #f2e8e8;
+  color: #a33a3a;
+}

@@ -116,6 +116,9 @@
         <button class="nav-item" data-nav="categories">
           <span class="nav-icon">◇</span> Kategori
         </button>
+        <button class="nav-item" data-nav="blocks">
+          <span class="nav-icon">▦</span> Blok Kategori
+        </button>
         <button class="nav-item" data-nav="menus">
           <span class="nav-icon">☰</span> Menu
         </button>
@@ -202,6 +205,14 @@
                   <option value="published">Published</option>
                   <option value="draft">Draft</option>
                 </select>
+              </div>
+
+              <div class="field checkbox-field highlight-checkbox-field">
+                <label class="check-label">
+                  <input type="checkbox" id="meta-highlight" />
+                  <span>Jadikan Berita Pilihan / Highlight News</span>
+                </label>
+                <small class="field-hint">Jika dicentang, artikel ini dapat tampil di bagian <strong>Highlight News</strong> homepage. Artikel yang tidak dicentang tidak akan masuk ke Highlight News.</small>
               </div>
 
               <div class="field">
@@ -295,6 +306,66 @@
           <section class="meta-card">
             <h3 class="meta-card-title">Daftar Kategori</h3>
             <div id="category-list" class="category-list-admin">
+              <!-- diisi oleh JS -->
+            </div>
+          </section>
+        </div>
+      </div>
+
+
+      <!-- ---- PANEL: HOMEPAGE CATEGORY BLOCKS ---- -->
+      <div id="panel-blocks" class="panel hidden">
+        <header class="panel-header">
+          <div>
+            <h2 class="panel-title">Blok Kategori Homepage</h2>
+            <p class="panel-sub">Atur blok kategori mana yang tampil di homepage, urutan, judul, dan jumlah artikel per blok. Data tersimpan di <code>config.json</code>.</p>
+          </div>
+          <div class="panel-actions">
+            <button class="btn btn-ghost btn-icon" id="btn-refresh-blocks" title="Muat ulang">↻</button>
+          </div>
+        </header>
+
+        <div class="category-manager-grid menu-manager-grid">
+          <section class="meta-card">
+            <h3 class="meta-card-title" id="block-form-title">Tambah Blok Kategori</h3>
+            <div class="field">
+              <label for="block-category">Kategori yang Ditampilkan</label>
+              <select id="block-category">
+                <option value="">Pilih kategori</option>
+              </select>
+              <small class="field-hint">Daftar ini mengikuti menu <strong>Kategori</strong>. Tambahkan kategori terlebih dahulu jika belum tersedia.</small>
+            </div>
+            <div class="field">
+              <label for="block-title">Judul Blok</label>
+              <input type="text" id="block-title" placeholder="Contoh: Berita Bisnis Terbaru" />
+              <small class="field-hint">Kosongkan jika ingin memakai nama kategori.</small>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label for="block-order">Urutan</label>
+                <input type="number" id="block-order" min="1" placeholder="1" />
+              </div>
+              <div class="field">
+                <label for="block-limit">Jumlah Artikel</label>
+                <input type="number" id="block-limit" min="1" max="12" value="5" />
+              </div>
+            </div>
+            <div class="field checkbox-field">
+              <label class="check-label">
+                <input type="checkbox" id="block-enabled" checked />
+                <span>Tampilkan blok ini di homepage</span>
+              </label>
+            </div>
+            <div class="category-form-actions">
+              <button class="btn btn-primary" id="btn-save-block" type="button">Simpan Blok</button>
+              <button class="btn btn-ghost" id="btn-reset-block" type="button">Reset</button>
+            </div>
+            <p class="settings-note category-note">Blok yang dinonaktifkan tetap tersimpan, tetapi tidak dirender di homepage saat build.</p>
+          </section>
+
+          <section class="meta-card">
+            <h3 class="meta-card-title">Daftar Blok Homepage</h3>
+            <div id="block-list" class="category-list-admin menu-list-admin">
               <!-- diisi oleh JS -->
             </div>
           </section>

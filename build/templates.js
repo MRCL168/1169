@@ -337,6 +337,12 @@ function adSlot(key, name, size = "970 × 90", extraClass = "", config = {}) {
   return `<aside class="ad-slot ${extraClass}" aria-label="Slot iklan ${attr(slot.label)}"><span>Advertisement</span><strong>${esc(slot.label)}</strong><small>${esc(slot.size)}</small></aside>`;
 }
 
+function truthy(value) {
+  if (value === true) return true;
+  const v = String(value == null ? "" : value).trim().toLowerCase();
+  return ["true", "1", "yes", "y", "on"].includes(v);
+}
+
 function postImage(post, U, className = "") {
   if (post.featuredImage) {
     return `<img src="${attr(assetUrl(post.featuredImage, U))}" alt="${attr(post.meta.title)}" loading="lazy">`;
@@ -402,25 +408,83 @@ function textList(posts, config, U, title = "Berita Terbaru") {
   </section>`;
 }
 
+function normalizeHomepageCategoryBlocks(config = {}, posts = []) {
+  const homepage = config.homepage && typeof config.homepage === "object" ? config.homepage : {};
+  const rawBlocks = Array.isArray(homepage.categoryBlocks) ? homepage.categoryBlocks : [];
+  const cats = normalizeCategories(config, posts);
+  const byName = new Map(cats.map((cat) => [cat.name.toLowerCase(), cat]));
+  const bySlug = new Map(cats.map((cat) => [cat.slug, cat]));
+
+  const normalizeBlock = (item, index) => {
+    if (!item || typeof item !== "object") return null;
+    const rawCategory = String(item.category || item.name || item.slug || "").trim();
+    if (!rawCategory) return null;
+    const found = byName.get(rawCategory.toLowerCase()) || bySlug.get(slugify(rawCategory));
+    const categoryName = found ? found.name : rawCategory;
+    return {
+      category: categoryName,
+      slug: found ? found.slug : slugify(rawCategory),
+      title: String(item.title || "").trim() || categoryName,
+      enabled: item.enabled !== false,
+      order: Number.isFinite(Number(item.order)) ? Number(item.order) : index + 1,
+      limit: Math.min(12, Math.max(1, parseInt(item.limit, 10) || 5)),
+    };
+  };
+
+  if (rawBlocks.length) {
+    return rawBlocks.map(normalizeBlock).filter(Boolean).sort((a, b) => (a.order || 0) - (b.order || 0));
+  }
+
+  return cats.slice(0, 6).map((cat, index) => ({
+    category: cat.name,
+    slug: cat.slug,
+    title: cat.name,
+    enabled: true,
+    order: index + 1,
+    limit: 5,
+  }));
+}
+
 function getCategoryGroups(posts, limit = 6, config = {}) {
   const map = new Map();
   posts.forEach((post) => {
-    const cat = post.meta.category || "Berita";
-    if (!map.has(cat)) map.set(cat, []);
-    map.get(cat).push(post);
+    const catName = post.meta.category || "Berita";
+    const catSlug = categorySlug(catName, config);
+    const keys = [catName.toLowerCase(), catSlug];
+    keys.forEach((key) => {
+      if (!map.has(key)) map.set(key, { name: catName, slug: catSlug, list: [] });
+      map.get(key).list.push(post);
+    });
   });
 
-  const configured = normalizeCategories(config, posts).map((c) => c.name);
+  const configuredBlocks = normalizeHomepageCategoryBlocks(config, posts).filter((block) => block.enabled !== false);
+  if (configuredBlocks.length) {
+    return configuredBlocks
+      .map((block) => {
+        const found = map.get(String(block.category || "").toLowerCase()) || map.get(block.slug);
+        const list = found ? found.list.slice(0, block.limit || 5) : [];
+        return { name: block.category, title: block.title || block.category, slug: block.slug, list, limit: block.limit || 5 };
+      })
+      .filter((group) => group.list.length)
+      .slice(0, limit);
+  }
+
   const ordered = [];
-  configured.forEach((name) => {
-    if (map.has(name)) ordered.push([name, map.get(name)]);
+  const seen = new Set();
+  normalizeCategories(config, posts).forEach((cat) => {
+    const found = map.get(cat.name.toLowerCase()) || map.get(cat.slug);
+    if (found && !seen.has(cat.slug)) {
+      seen.add(cat.slug);
+      ordered.push({ name: cat.name, title: cat.name, slug: cat.slug, list: found.list });
+    }
   });
-  Array.from(map.entries())
-    .filter(([name]) => !configured.includes(name))
-    .sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]))
-    .forEach((entry) => ordered.push(entry));
 
-  return ordered.slice(0, limit).map(([name, list]) => ({ name, list }));
+  Array.from(map.values())
+    .filter((entry) => !seen.has(entry.slug))
+    .sort((a, b) => b.list.length - a.list.length || a.name.localeCompare(b.name))
+    .forEach((entry) => ordered.push({ name: entry.name, title: entry.name, slug: entry.slug, list: entry.list }));
+
+  return ordered.slice(0, limit);
 }
 
 function categoryBlock(group, config, U, index) {
@@ -428,8 +492,8 @@ function categoryBlock(group, config, U, index) {
   if (!lead) return "";
   return `<section class="category-section">
     <div class="section-heading">
-      <div><span>Rubrik</span><h2>${esc(group.name)}</h2></div>
-      <a href="${attr(U.url('/category/' + categorySlug(group.name, config) + '/'))}">Lihat semua</a>
+      <div><span>Rubrik</span><h2>${esc(group.title || group.name)}</h2></div>
+      <a href="${attr(U.url('/category/' + (group.slug || categorySlug(group.name, config)) + '/'))}">Lihat semua</a>
     </div>
     <div class="category-layout">
       ${postCard(lead, config, U, 'category-lead')}
@@ -459,26 +523,27 @@ function homeTemplate({ posts, allPosts, pageNum, totalPages, config, U }) {
     });
   }
 
-  const featured = fullList[0];
-  const secondary = fullList.slice(1, 4);
-  const latest = fullList.slice(4, 12);
-  const groups = getCategoryGroups(fullList, 6, config);
+  const highlightList = fullList.filter((post) => truthy(post.meta.highlight));
+  const featured = highlightList[0] || null;
+  const secondary = highlightList.slice(1, 4);
+  const latest = fullList.slice(0, 8);
+  const groups = getCategoryGroups(fullList, 12, config);
 
   const content = `
     ${adSlot('header', 'Slot Iklan Header', '970 × 90', 'ad-top', config)}
-    <section class="container home-hero">
+    ${featured ? `<section class="container home-hero">
       <div class="hero-kicker">
-        <div><span>Highlight News</span><h2>Berita Utama Pilihan Redaksi</h2></div>
-        <p>Headline penting, update terbaru, dan cerita yang sedang menjadi perhatian.</p>
+        <div><span>Highlight News</span><h2>Berita Pilihan Redaksi</h2></div>
+        <p>Hanya artikel yang dicentang sebagai Berita Pilihan dari admin yang tampil di area ini.</p>
       </div>
       <div class="highlight-grid">
         ${featureCard(featured, config, U)}
         <div class="highlight-side">
           <div class="highlight-side-title">Pilihan Lainnya</div>
-          ${secondary.map((p) => compactHeadline(p, config, U)).join("")}
+          ${secondary.length ? secondary.map((p) => compactHeadline(p, config, U)).join("") : `<p class="empty-note">Tambahkan artikel pilihan lain dengan mencentang Highlight News di editor artikel.</p>`}
         </div>
       </div>
-    </section>
+    </section>` : ""}
 
     <section class="container content-layout">
       <div class="main-column">
@@ -737,6 +802,7 @@ module.exports = {
   slugify,
   categorySlug,
   normalizeCategories,
+  normalizeHomepageCategoryBlocks,
   formatDate,
   esc,
   attr,

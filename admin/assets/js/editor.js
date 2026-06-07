@@ -41,6 +41,8 @@ const Editor = (() => {
         } else {
           // Lepas tanda kutip
           value = value.replace(/^["']|["']$/g, "");
+          if (value === "true") value = true;
+          else if (value === "false") value = false;
         }
         meta[key] = value;
       });
@@ -58,7 +60,7 @@ const Editor = (() => {
   function serialize(meta, body) {
     const lines = ["---"];
 
-    const order = ["title", "slug", "date", "status", "category", "author", "tags", "excerpt", "featured_image"];
+    const order = ["title", "slug", "date", "status", "highlight", "category", "author", "tags", "excerpt", "featured_image"];
     const keys = [...order, ...Object.keys(meta).filter((k) => !order.includes(k))];
 
     keys.forEach((key) => {

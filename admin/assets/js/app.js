@@ -11,6 +11,7 @@ const App = (() => {
     categories: [],      // daftar kategori dari config.json
     editing: null,       // file yang sedang diedit (null = artikel baru)
     editingCategoryIndex: null,
+    editingBlockIndex: null,
     editingMenuIndex: null,
     siteConfig: null,
     confirmCallback: null,
@@ -75,7 +76,7 @@ const App = (() => {
   }
 
   function showPanel(name) {
-    ["list", "editor", "categories", "menus", "ads", "media", "settings"].forEach((p) => {
+    ["list", "editor", "categories", "blocks", "menus", "ads", "media", "settings"].forEach((p) => {
       $(`#panel-${p}`).classList.toggle("hidden", p !== name);
     });
     // Sinkronkan highlight navigasi
@@ -275,12 +276,14 @@ const App = (() => {
         const status = (a.meta.status || "published").toLowerCase();
         const date = a.meta.date || "—";
         const statusClass = status === "draft" ? "status-draft" : "status-published";
+        const isHighlight = a.meta.highlight === true || String(a.meta.highlight || "").toLowerCase() === "true";
         return `
         <article class="article-card">
           <div class="article-info" onclick="App.editArticle(${i})">
             <h3>${escapeHtml(title)}</h3>
             <div class="article-meta">
               <span class="status-tag ${statusClass}">${escapeHtml(status)}</span>
+              ${isHighlight ? '<span class="status-tag status-highlight">Highlight</span>' : ''}
               <span>${escapeHtml(date)}</span>
               ${a.meta.category ? `<span>${escapeHtml(a.meta.category)}</span>` : ""}
               <span class="mono">${escapeHtml(a.name)}</span>
@@ -320,6 +323,7 @@ const App = (() => {
     $("#meta-slug").value = "";
     $("#meta-slug").dataset.touched = "";
     $("#meta-status").value = "published";
+    $("#meta-highlight").checked = false;
     $("#meta-category").value = "";
     $("#meta-date").value = new Date().toISOString().slice(0, 10);
     $("#meta-author").value = "";
@@ -347,6 +351,7 @@ const App = (() => {
     $("#meta-title").value = meta.title || "";
     $("#meta-slug").value = meta.slug || article.name.replace(/\.(md|markdown)$/i, "");
     $("#meta-status").value = (meta.status || "published").toLowerCase();
+    $("#meta-highlight").checked = meta.highlight === true || String(meta.highlight || "").toLowerCase() === "true";
     ensureCategoryOption(meta.category || "");
     $("#meta-category").value = meta.category || "";
     $("#meta-date").value = meta.date || "";
@@ -386,6 +391,7 @@ const App = (() => {
       slug,
       date: $("#meta-date").value || new Date().toISOString().slice(0, 10),
       status: $("#meta-status").value,
+      highlight: $("#meta-highlight").checked,
       category: $("#meta-category").value.trim(),
       author: $("#meta-author").value.trim(),
       tags,
@@ -813,6 +819,45 @@ const App = (() => {
       .sort((a, b) => (a.order || 0) - (b.order || 0));
   }
 
+  function normalizeHomepageBlocks(list) {
+    return (Array.isArray(list) ? list : [])
+      .map((item, index) => {
+        if (!item || typeof item !== "object") return null;
+        const category = String(item.category || item.name || item.slug || "").trim();
+        if (!category) return null;
+        const order = Number.isFinite(Number(item.order)) ? Number(item.order) : index + 1;
+        const limit = Math.min(12, Math.max(1, parseInt(item.limit, 10) || 5));
+        return {
+          category,
+          title: String(item.title || "").trim(),
+          enabled: item.enabled !== false,
+          order,
+          limit,
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => (a.order || 0) - (b.order || 0));
+  }
+
+  function defaultHomepageBlocksFromCategories() {
+    return (state.categories || []).slice(0, 6).map((cat, index) => ({
+      category: cat.name,
+      title: cat.name,
+      enabled: true,
+      order: index + 1,
+      limit: 5,
+    }));
+  }
+
+  function normalizeHomepageConfig(homepage) {
+    const next = homepage && typeof homepage === "object" ? Object.assign({}, homepage) : {};
+    next.categoryBlocks = normalizeHomepageBlocks(next.categoryBlocks);
+    if (!next.categoryBlocks.length && state.categories && state.categories.length) {
+      next.categoryBlocks = defaultHomepageBlocksFromCategories();
+    }
+    return next;
+  }
+
   function normalizeAds(ads) {
     const next = { enabled: true, slots: {} };
     if (ads && typeof ads === "object") {
@@ -847,6 +892,8 @@ const App = (() => {
         return null;
       }
       cfg.categories = normalizeCategories(cfg.categories);
+      state.categories = cfg.categories;
+      cfg.homepage = normalizeHomepageConfig(cfg.homepage);
       cfg.nav = normalizeMenuItems(cfg.nav);
       cfg.ads = normalizeAds(cfg.ads);
       if (!cfg.categories.length && state.articles.length) {
@@ -907,6 +954,7 @@ const App = (() => {
     hideLoader();
     renderCategoryList();
     populateCategorySuggestions(state.articles);
+    populateBlockCategoryOptions();
   }
 
   function renderCategoryList() {
@@ -1003,6 +1051,7 @@ const App = (() => {
       resetCategoryForm();
       renderCategoryList();
       populateCategorySuggestions(state.articles);
+      populateBlockCategoryOptions();
     } catch (err) {
       state.categories = previous;
       toast(`Gagal menyimpan kategori: ${err.message}`, "error");
@@ -1036,6 +1085,7 @@ const App = (() => {
       resetCategoryForm();
       renderCategoryList();
       populateCategorySuggestions(state.articles);
+      populateBlockCategoryOptions();
     } catch (err) {
       state.categories = previous;
       hideLoader();
@@ -1051,6 +1101,188 @@ const App = (() => {
     const json = JSON.stringify(cfg, null, 2) + "\n";
     const res = await API.saveFile(CONFIG_PATH, json, message || "Update kategori via CMS", siteConfigSha);
     siteConfigSha = res.content ? res.content.sha : siteConfigSha;
+  }
+
+  /* ============================================================
+     HOMEPAGE CATEGORY BLOCKS
+     ============================================================ */
+  async function loadBlocks() {
+    showLoader("Memuat blok kategori…");
+    await loadSiteConfig({ silent: true });
+    hideLoader();
+    populateBlockCategoryOptions();
+    resetBlockForm();
+    renderBlockList();
+  }
+
+  function getHomepageBlocks() {
+    const cfg = state.siteConfig || {};
+    cfg.homepage = normalizeHomepageConfig(cfg.homepage);
+    return normalizeHomepageBlocks(cfg.homepage.categoryBlocks);
+  }
+
+  function populateBlockCategoryOptions(selected = "") {
+    const select = $("#block-category");
+    if (!select) return;
+    const cats = state.categories || [];
+    const current = selected || select.value || "";
+    select.innerHTML = `<option value="">Pilih kategori</option>` + cats
+      .map((cat) => `<option value="${escapeHtml(cat.name)}">${escapeHtml(cat.name)}</option>`)
+      .join("");
+    if (current && !Array.from(select.options).some((opt) => opt.value === current)) {
+      const opt = document.createElement("option");
+      opt.value = current;
+      opt.textContent = `${current} (belum terdaftar)`;
+      select.appendChild(opt);
+    }
+    select.value = current || "";
+  }
+
+  function renderBlockList() {
+    const wrap = $("#block-list");
+    if (!wrap) return;
+    const blocks = getHomepageBlocks();
+
+    if (!blocks.length) {
+      wrap.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">▦</div>
+          <h3>Belum ada blok kategori</h3>
+          <p>Tambahkan blok pertama untuk menentukan kategori yang muncul di homepage.</p>
+        </div>`;
+      return;
+    }
+
+    wrap.innerHTML = blocks.map((item, index) => `
+      <article class="category-admin-item menu-admin-item">
+        <div>
+          <div class="category-admin-title">${escapeHtml(item.title || item.category)}</div>
+          <div class="category-admin-meta">
+            <span class="mono">${escapeHtml(item.category)}</span>
+            <span class="category-count-pill">Urutan ${escapeHtml(item.order || index + 1)}</span>
+            <span class="category-count-pill">${escapeHtml(item.limit || 5)} artikel</span>
+            <span class="category-count-pill ${item.enabled ? 'is-on' : 'is-off'}">${item.enabled ? 'Tampil' : 'Nonaktif'}</span>
+          </div>
+        </div>
+        <div class="category-admin-actions">
+          <button class="btn btn-ghost btn-small" onclick="App.editBlock(${index})">Edit</button>
+          <button class="btn btn-danger btn-small" onclick="App.askDeleteBlock(${index})">Hapus</button>
+        </div>
+      </article>`).join("");
+  }
+
+  function resetBlockForm() {
+    state.editingBlockIndex = null;
+    if (!$("#block-form-title")) return;
+    $("#block-form-title").textContent = "Tambah Blok Kategori";
+    populateBlockCategoryOptions("");
+    $("#block-title").value = "";
+    $("#block-order").value = "";
+    $("#block-limit").value = 5;
+    $("#block-enabled").checked = true;
+    $("#btn-save-block").textContent = "Simpan Blok";
+  }
+
+  function editBlock(index) {
+    const item = getHomepageBlocks()[index];
+    if (!item) return;
+    state.editingBlockIndex = index;
+    $("#block-form-title").textContent = "Edit Blok Kategori";
+    populateBlockCategoryOptions(item.category || "");
+    $("#block-title").value = item.title || "";
+    $("#block-order").value = item.order || index + 1;
+    $("#block-limit").value = item.limit || 5;
+    $("#block-enabled").checked = item.enabled !== false;
+    $("#btn-save-block").textContent = "Update Blok";
+  }
+
+  async function saveBlock() {
+    const cfg = await ensureSiteConfigLoaded();
+    if (!cfg) {
+      toast("config.json belum bisa dimuat.", "error");
+      return;
+    }
+
+    const category = $("#block-category").value.trim();
+    if (!category) {
+      toast("Pilih kategori yang ingin ditampilkan.", "error");
+      return;
+    }
+
+    const blocks = getHomepageBlocks();
+    const index = state.editingBlockIndex;
+    const next = {
+      category,
+      title: $("#block-title").value.trim(),
+      enabled: $("#block-enabled").checked,
+      order: parseInt($("#block-order").value, 10) || (blocks.length + 1),
+      limit: Math.min(12, Math.max(1, parseInt($("#block-limit").value, 10) || 5)),
+    };
+    const action = index == null || index < 0 ? "Tambah" : "Update";
+    if (index == null || index < 0) blocks.push(next);
+    else blocks[index] = next;
+
+    cfg.homepage = Object.assign({}, cfg.homepage || {}, {
+      categoryBlocks: normalizeHomepageBlocks(blocks).map((item, i) => ({
+        category: item.category,
+        title: item.title,
+        enabled: item.enabled !== false,
+        order: item.order || i + 1,
+        limit: item.limit || 5,
+      })),
+    });
+
+    showLoader("Menyimpan blok kategori…");
+    try {
+      const json = JSON.stringify(cfg, null, 2) + "\n";
+      const res = await API.saveFile(CONFIG_PATH, json, `${action} blok kategori: ${category}`, siteConfigSha);
+      hideLoader();
+      siteConfigSha = res.content ? res.content.sha : siteConfigSha;
+      state.siteConfig = cfg;
+      toast(action === "Tambah" ? "Blok kategori ditambahkan." : "Blok kategori diperbarui.", "success");
+      resetBlockForm();
+      renderBlockList();
+    } catch (err) {
+      hideLoader();
+      toast(`Gagal menyimpan blok kategori: ${err.message}`, "error");
+    }
+  }
+
+  function askDeleteBlock(index) {
+    const item = getHomepageBlocks()[index];
+    if (!item) return;
+    confirmModal(
+      "Hapus blok kategori?",
+      `Blok "${item.title || item.category}" akan dihapus dari homepage. Kategori dan artikel tidak ikut dihapus.`,
+      "Hapus",
+      () => deleteBlock(index)
+    );
+  }
+
+  async function deleteBlock(index) {
+    const cfg = await ensureSiteConfigLoaded();
+    if (!cfg) return;
+    const blocks = getHomepageBlocks();
+    const item = blocks[index];
+    if (!item) return;
+    blocks.splice(index, 1);
+    cfg.homepage = Object.assign({}, cfg.homepage || {}, {
+      categoryBlocks: normalizeHomepageBlocks(blocks).map((block, i) => ({ ...block, order: block.order || i + 1 })),
+    });
+    showLoader("Menghapus blok kategori…");
+    try {
+      const json = JSON.stringify(cfg, null, 2) + "\n";
+      const res = await API.saveFile(CONFIG_PATH, json, `Hapus blok kategori: ${item.title || item.category}`, siteConfigSha);
+      hideLoader();
+      siteConfigSha = res.content ? res.content.sha : siteConfigSha;
+      state.siteConfig = cfg;
+      toast("Blok kategori dihapus.", "success");
+      resetBlockForm();
+      renderBlockList();
+    } catch (err) {
+      hideLoader();
+      toast(`Gagal menghapus blok kategori: ${err.message}`, "error");
+    }
   }
 
   /* ============================================================
@@ -1382,6 +1614,7 @@ const App = (() => {
         } else {
           showPanel(nav);
           if (nav === "categories") loadCategories();
+          if (nav === "blocks") loadBlocks();
           if (nav === "menus") loadMenus();
           if (nav === "ads") loadAds();
           if (nav === "media") loadMedia();
@@ -1399,6 +1632,9 @@ const App = (() => {
     $("#btn-refresh-categories").addEventListener("click", loadCategories);
     $("#btn-save-category").addEventListener("click", saveCategory);
     $("#btn-reset-category").addEventListener("click", resetCategoryForm);
+    $("#btn-refresh-blocks").addEventListener("click", loadBlocks);
+    $("#btn-save-block").addEventListener("click", saveBlock);
+    $("#btn-reset-block").addEventListener("click", resetBlockForm);
     $("#btn-refresh-menus").addEventListener("click", loadMenus);
     $("#btn-save-menu").addEventListener("click", saveMenu);
     $("#btn-reset-menu").addEventListener("click", resetMenuForm);
@@ -1473,6 +1709,10 @@ const App = (() => {
       $("#cat-slug").dataset.touched = "1";
     });
 
+    $("#block-category").addEventListener("change", (e) => {
+      if (!$("#block-title").value.trim()) $("#block-title").value = e.target.value;
+    });
+
     // Modal konfirmasi
     $("#modal-cancel").addEventListener("click", closeModal);
     $("#modal-confirm-btn").addEventListener("click", () => {
@@ -1502,6 +1742,8 @@ const App = (() => {
     copyText,
     editCategory,
     askDeleteCategory,
+    editBlock,
+    askDeleteBlock,
     editMenu,
     askDeleteMenu,
   };

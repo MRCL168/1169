@@ -1,7 +1,7 @@
 {
-  "title": "Bisnis Dimensinews.co.id",
-  "tagline": "Portal Berita Bisnis",
-  "description": "",
+  "title": "GitNews Pro",
+  "tagline": "Portal Berita Berbasis GitHub CMS",
+  "description": "Template CMS website berita profesional berbasis GitHub, ringan, mobile friendly, SEO-ready, mendukung mode terang dan gelap, serta memiliki slot iklan strategis.",
   "author": "Redaksi GitNews Pro",
   "language": "id",
   "baseUrl": "https://bisnis.dimensinews.co.id",
@@ -146,8 +146,54 @@
     }
   },
   "news": {
-    "publicationName": "Redaksi Dimensinews",
+    "publicationName": "GitNews Pro",
     "language": "id"
   },
-  "timezoneOffset": "+07:00"
+  "timezoneOffset": "+07:00",
+  "homepage": {
+    "categoryBlocks": [
+      {
+        "category": "Nasional",
+        "title": "Nasional",
+        "enabled": true,
+        "order": 1,
+        "limit": 5
+      },
+      {
+        "category": "Bisnis",
+        "title": "Bisnis",
+        "enabled": true,
+        "order": 2,
+        "limit": 5
+      },
+      {
+        "category": "Teknologi",
+        "title": "Teknologi",
+        "enabled": true,
+        "order": 3,
+        "limit": 5
+      },
+      {
+        "category": "Lifestyle",
+        "title": "Lifestyle",
+        "enabled": true,
+        "order": 4,
+        "limit": 5
+      },
+      {
+        "category": "Olahraga",
+        "title": "Olahraga",
+        "enabled": true,
+        "order": 5,
+        "limit": 5
+      },
+      {
+        "category": "Transportasi",
+        "title": "Transportasi",
+        "enabled": true,
+        "order": 6,
+        "limit": 5
+      }
+    ]
+  }
 }
