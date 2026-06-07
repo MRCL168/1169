@@ -1,13 +1,14 @@
 ---
 title: "Tren Hunian Kompak di Perkotaan: Ruang Kecil Ditata Lebih Fungsional"
-slug: "tren-hunian-kompak-di-perkotaan"
-date: "2026-06-04"
-author: "Lifestyle Desk"
-category: "Lifestyle"
-tags: [lifestyle, properti, rumah]
-featured_image: "/public/images/news-lifestyle.svg"
-excerpt: "Hunian kompak semakin diminati karena lebih efisien, tetapi kenyamanan tetap bergantung pada tata ruang, pencahayaan, pilihan furnitur, dan kebiasaan penghuni."
-status: "published"
+slug: tren-hunian-kompak-di-perkotaan
+date: 2026-06-04
+status: published
+highlight: true
+category: Lifestyle
+author: Lifestyle Desk
+tags: ["lifestyle", "properti", "rumah"]
+excerpt: Hunian kompak semakin diminati karena lebih efisien, tetapi kenyamanan tetap bergantung pada tata ruang, pencahayaan, pilihan furnitur, dan kebiasaan penghuni.
+featured_image: /public/images/news-lifestyle.svg
 ---
 
 Hunian kompak menjadi pilihan banyak keluarga muda dan pekerja perkotaan. Harga lahan yang meningkat membuat ukuran rumah dan apartemen cenderung lebih kecil, sementara kebutuhan ruang tetap beragam: bekerja, beristirahat, menerima tamu, dan menyimpan barang.
