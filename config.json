@@ -144,13 +144,6 @@
         "enabled": false,
         "order": 4,
         "limit": 5
-      },
-      {
-        "category": "Olahraga",
-        "title": "Olahraga",
-        "enabled": false,
-        "order": 5,
-        "limit": 5
       }
     ]
   },
