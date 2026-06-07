@@ -1,13 +1,14 @@
 ---
 title: "Arah Baru Kota Digital: Layanan Publik Mulai Bergerak ke Sistem Terintegrasi"
-slug: "arah-baru-kebijakan-kota-digital"
-date: "2026-06-07"
-author: "Redaksi"
-category: "Nasional"
-tags: [nasional, layanan publik, digital]
-featured_image: "/public/images/news-nasional.svg"
-excerpt: "Transformasi layanan publik semakin banyak diarahkan ke sistem terintegrasi agar warga bisa mengakses informasi, pengaduan, dan administrasi dalam satu kanal yang mudah digunakan."
-status: "published"
+slug: arah-baru-kebijakan-kota-digital
+date: 2026-06-07
+status: published
+highlight: true
+category: Nasional
+author: Redaksi
+tags: ["nasional", "layanan publik", "digital"]
+excerpt: Transformasi layanan publik semakin banyak diarahkan ke sistem terintegrasi agar warga bisa mengakses informasi, pengaduan, dan administrasi dalam satu kanal yang mudah digunakan.
+featured_image: /public/images/news-nasional.svg
 ---
 
 Pemerintah daerah dan institusi layanan publik terus mendorong penggunaan kanal digital untuk mempercepat akses masyarakat terhadap informasi dan administrasi harian. Dalam model yang lebih matang, warga tidak lagi harus berpindah dari satu loket ke loket lain untuk memantau proses layanan, mengirim berkas, atau melihat status permohonan.
