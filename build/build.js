@@ -35,7 +35,7 @@ function ensureDir(dir) {
 }
 
 function writePage(relPath, html) {
-  // relPath seperti "posts/slug/" → tulis index.html di dalamnya
+  // relPath seperti "slug/" → tulis index.html di dalamnya
   const dir = path.join(OUT, relPath);
   ensureDir(dir);
   fs.writeFileSync(path.join(dir, "index.html"), html, "utf8");
@@ -160,7 +160,7 @@ function build() {
   posts = posts.filter((p) => String(p.meta.status || "published").toLowerCase() !== "draft");
 
   // Permalink
-  posts.forEach((p) => { p.permalink = "/posts/" + p.slug + "/"; });
+  posts.forEach((p) => { p.permalink = "/" + p.slug + "/"; });
 
   // Urutkan terbaru dulu
   posts.sort((a, b) => String(b.meta.date || "").localeCompare(String(a.meta.date || "")));
@@ -179,7 +179,7 @@ function build() {
       })
       .slice(0, 3);
 
-    writePage("posts/" + post.slug + "/", T.postTemplate({ post, config, U, related, allPosts: posts }));
+    writePage(post.slug + "/", T.postTemplate({ post, config, U, related, allPosts: posts }));
   });
 
   /* ---- Beranda + paginasi ---- */

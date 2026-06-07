@@ -1,5 +1,23 @@
 # GitNews Pro — Template CMS Website Berita Berbasis GitHub
 
+
+## Catatan v6 — Slug Artikel di Root Domain
+
+Mulai versi ini, URL artikel dibuat langsung di root domain, misalnya:
+
+```txt
+https://bisnis.dimensinews.co.id/strategi-umkm-menjaga-arus-kas/
+```
+
+Bukan lagi:
+
+```txt
+https://bisnis.dimensinews.co.id/posts/strategi-umkm-menjaga-arus-kas/
+```
+
+Perubahan ini otomatis diterapkan ke halaman artikel, link internal, canonical, sitemap.xml, news-sitemap.xml, RSS, Open Graph, dan JSON-LD. File sumber artikel tetap berada di folder `content/posts/` agar admin CMS tetap rapi.
+
+
 GitNews Pro adalah template portal berita profesional berbasis modul GitCMS. Template ini menggunakan Markdown sebagai sumber konten, GitHub sebagai penyimpanan, dan static site generator bawaan untuk menghasilkan website HTML statis yang ringan.
 
 ## Fitur Utama
