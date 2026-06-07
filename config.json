@@ -162,7 +162,7 @@
       {
         "category": "Bisnis",
         "title": "Bisnis",
-        "enabled": true,
+        "enabled": false,
         "order": 2,
         "limit": 5
       },
