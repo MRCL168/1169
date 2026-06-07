@@ -176,7 +176,7 @@
       {
         "category": "Lifestyle",
         "title": "Lifestyle",
-        "enabled": true,
+        "enabled": false,
         "order": 4,
         "limit": 5
       },
