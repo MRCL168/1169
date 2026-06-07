@@ -58,11 +58,6 @@
   "footerText": "© {year} {title}. Semua hak cipta dilindungi.",
   "categories": [
     {
-      "name": "Teknologi",
-      "slug": "teknologi",
-      "description": "Perkembangan teknologi, AI, keamanan data, dan transformasi digital."
-    },
-    {
       "name": "Lifestyle",
       "slug": "lifestyle",
       "description": "Gaya hidup, hunian, kesehatan, dan kebiasaan urban."
