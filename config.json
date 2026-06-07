@@ -58,11 +58,6 @@
   "footerText": "© {year} {title}. Semua hak cipta dilindungi.",
   "categories": [
     {
-      "name": "Transportasi",
-      "slug": "transportasi",
-      "description": "Transportasi publik, mobilitas kota, dan infrastruktur."
-    },
-    {
       "name": "Pendidikan",
       "slug": "pendidikan",
       "description": "Kabar pendidikan, literasi digital, dan sekolah."
