@@ -37,19 +37,79 @@ function makeUrlHelpers(config) {
 
 function siteNav(config, U) {
   return (config.nav || [])
-    .map((n) => `<a href="${attr(U.url(n.url))}">${esc(n.label)}</a>`)
+    .filter((n) => n && n.label && n.url)
+    .slice()
+    .sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0))
+    .map((n) => {
+      const isExternal = /^https?:\/\//i.test(String(n.url));
+      const href = isExternal ? n.url : U.url(n.url);
+      const target = n.newTab ? ' target="_blank" rel="noopener sponsored"' : '';
+      return `<a href="${attr(href)}"${target}>${esc(n.label)}</a>`;
+    })
     .join("");
 }
 
-function categoryNav(posts, U, limit = 7) {
+function normalizeCategories(config = {}, posts = []) {
+  const seen = new Set();
+  const list = [];
+  const add = (item) => {
+    const name = typeof item === "string" ? item : (item && item.name);
+    if (!name) return;
+    const cleanName = String(name).trim();
+    if (!cleanName) return;
+    const key = cleanName.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    const rawSlug = typeof item === "object" && item && item.slug ? item.slug : cleanName;
+    list.push({
+      name: cleanName,
+      slug: slugify(rawSlug),
+      description: typeof item === "object" && item && item.description ? String(item.description) : "",
+    });
+  };
+
+  (config.categories || []).forEach(add);
+
+  // Fallback: jika config lama belum punya categories, ambil dari artikel.
+  if (!list.length) {
+    posts.forEach((p) => p.meta && p.meta.category && add(p.meta.category));
+  }
+
+  return list;
+}
+
+function categorySlug(name, config = {}) {
+  const target = String(name || "").trim().toLowerCase();
+  const found = normalizeCategories(config).find((c) => c.name.toLowerCase() === target);
+  return found ? found.slug : slugify(name);
+}
+
+function categoryUrl(name, U, config = {}) {
+  return U.url('/category/' + categorySlug(name, config) + '/');
+}
+
+function categoryDescription(name, config = {}) {
+  const target = String(name || "").trim().toLowerCase();
+  const found = normalizeCategories(config).find((c) => c.name.toLowerCase() === target);
+  return found ? found.description : "";
+}
+
+function categoryNav(posts, U, limit = 7, config = {}) {
   const counts = {};
   posts.forEach((p) => {
     if (p.meta.category) counts[p.meta.category] = (counts[p.meta.category] || 0) + 1;
   });
-  return Object.keys(counts)
-    .sort((a, b) => counts[b] - counts[a] || a.localeCompare(b))
+
+  let cats = normalizeCategories(config, posts);
+  if (!cats.length) {
+    cats = Object.keys(counts)
+      .sort((a, b) => counts[b] - counts[a] || a.localeCompare(b))
+      .map((name) => ({ name, slug: slugify(name), description: "" }));
+  }
+
+  return cats
     .slice(0, limit)
-    .map((cat) => `<a href="${attr(U.url('/category/' + slugify(cat) + '/'))}">${esc(cat)}</a>`)
+    .map((cat) => `<a href="${attr(U.url('/category/' + cat.slug + '/'))}">${esc(cat.name)}</a>`)
     .join("");
 }
 
@@ -88,7 +148,7 @@ function header(config, U, posts = []) {
     </div>
     <div class="category-bar">
       <div class="container category-bar-inner">
-        ${categoryNav(posts, U) || `<a href="${attr(U.url('/'))}">Berita Utama</a>`}
+        ${categoryNav(posts, U, 12, config) || `<a href="${attr(U.url('/'))}">Berita Utama</a>`}
       </div>
     </div>
   </header>`;
@@ -106,7 +166,7 @@ function footer(config, U, posts = []) {
       </div>
       <div>
         <h3>Rubrik</h3>
-        <div class="footer-links">${categoryNav(posts, U, 10) || siteNav(config, U)}</div>
+        <div class="footer-links">${categoryNav(posts, U, 10, config) || siteNav(config, U)}</div>
       </div>
       <div>
         <h3>Redaksi</h3>
@@ -178,8 +238,26 @@ ${footer(config, U, posts)}
 </html>`;
 }
 
-function adSlot(name, size = "970 × 90", extraClass = "") {
-  return `<aside class="ad-slot ${extraClass}" aria-label="Slot iklan ${attr(name)}"><span>Advertisement</span><strong>${esc(name)}</strong><small>${esc(size)}</small></aside>`;
+function getAdSlotConfig(config = {}, key, fallbackName, fallbackSize) {
+  const ads = config.ads || {};
+  const slots = ads.slots || {};
+  const slot = slots[key] || {};
+  return {
+    globalEnabled: ads.enabled !== false,
+    enabled: slot.enabled !== false,
+    label: slot.label || fallbackName,
+    size: slot.size || fallbackSize,
+    html: typeof slot.html === "string" ? slot.html.trim() : "",
+  };
+}
+
+function adSlot(key, name, size = "970 × 90", extraClass = "", config = {}) {
+  const slot = getAdSlotConfig(config, key, name, size);
+  if (!slot.globalEnabled || !slot.enabled) return "";
+  if (slot.html) {
+    return `<aside class="ad-slot ad-custom ${extraClass}" aria-label="Slot iklan ${attr(slot.label)}"><div class="ad-slot-inner">${slot.html}</div></aside>`;
+  }
+  return `<aside class="ad-slot ${extraClass}" aria-label="Slot iklan ${attr(slot.label)}"><span>Advertisement</span><strong>${esc(slot.label)}</strong><small>${esc(slot.size)}</small></aside>`;
 }
 
 function postImage(post, U, className = "") {
@@ -194,9 +272,9 @@ function metaLine(post, config, withRead = true) {
   return `<div class="meta-line"><time datetime="${attr(post.meta.date)}">${esc(formatDate(post.meta.date, config.language))}</time>${withRead ? `<span>•</span><span>${post.readingTime} menit baca</span>` : ""}</div>`;
 }
 
-function categoryPill(post, U, className = "") {
+function categoryPill(post, U, config = {}, className = "") {
   if (!post.meta.category) return "";
-  return `<a class="category-pill ${className}" href="${attr(U.url('/category/' + slugify(post.meta.category) + '/'))}">${esc(post.meta.category)}</a>`;
+  return `<a class="category-pill ${className}" href="${attr(categoryUrl(post.meta.category, U, config))}">${esc(post.meta.category)}</a>`;
 }
 
 function featureCard(post, config, U) {
@@ -204,7 +282,7 @@ function featureCard(post, config, U) {
   return `<article class="feature-card">
     <a class="feature-image" href="${attr(U.url(post.permalink))}">${postImage(post, U)}</a>
     <div class="feature-content">
-      ${categoryPill(post, U)}
+      ${categoryPill(post, U, config)}
       <h1><a href="${attr(U.url(post.permalink))}">${esc(post.meta.title)}</a></h1>
       <p>${esc(post.excerpt)}</p>
       ${metaLine(post, config)}
@@ -217,7 +295,7 @@ function compactHeadline(post, config, U) {
   return `<article class="compact-headline">
     <a class="compact-thumb" href="${attr(U.url(post.permalink))}">${postImage(post, U)}</a>
     <div>
-      ${categoryPill(post, U, 'tiny')}
+      ${categoryPill(post, U, config, 'tiny')}
       <h2><a href="${attr(U.url(post.permalink))}">${esc(post.meta.title)}</a></h2>
       ${metaLine(post, config, false)}
     </div>
@@ -228,7 +306,7 @@ function postCard(post, config, U, style = "") {
   return `<article class="post-card ${style}">
     <a class="card-thumb" href="${attr(U.url(post.permalink))}">${postImage(post, U)}</a>
     <div class="card-body">
-      ${categoryPill(post, U)}
+      ${categoryPill(post, U, config)}
       <h2 class="card-title"><a href="${attr(U.url(post.permalink))}">${esc(post.meta.title)}</a></h2>
       <p class="card-excerpt">${esc(post.excerpt)}</p>
       ${metaLine(post, config)}
@@ -246,17 +324,25 @@ function textList(posts, config, U, title = "Berita Terbaru") {
   </section>`;
 }
 
-function getCategoryGroups(posts, limit = 6) {
+function getCategoryGroups(posts, limit = 6, config = {}) {
   const map = new Map();
   posts.forEach((post) => {
     const cat = post.meta.category || "Berita";
     if (!map.has(cat)) map.set(cat, []);
     map.get(cat).push(post);
   });
-  return Array.from(map.entries())
+
+  const configured = normalizeCategories(config, posts).map((c) => c.name);
+  const ordered = [];
+  configured.forEach((name) => {
+    if (map.has(name)) ordered.push([name, map.get(name)]);
+  });
+  Array.from(map.entries())
+    .filter(([name]) => !configured.includes(name))
     .sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]))
-    .slice(0, limit)
-    .map(([name, list]) => ({ name, list }));
+    .forEach((entry) => ordered.push(entry));
+
+  return ordered.slice(0, limit).map(([name, list]) => ({ name, list }));
 }
 
 function categoryBlock(group, config, U, index) {
@@ -265,7 +351,7 @@ function categoryBlock(group, config, U, index) {
   return `<section class="category-section">
     <div class="section-heading">
       <div><span>Rubrik</span><h2>${esc(group.name)}</h2></div>
-      <a href="${attr(U.url('/category/' + slugify(group.name) + '/'))}">Lihat semua</a>
+      <a href="${attr(U.url('/category/' + categorySlug(group.name, config) + '/'))}">Lihat semua</a>
     </div>
     <div class="category-layout">
       ${postCard(lead, config, U, 'category-lead')}
@@ -274,7 +360,7 @@ function categoryBlock(group, config, U, index) {
         ${rest.length === 0 ? `<p class="empty-note">Tambahkan artikel lain pada kategori ini melalui admin GitCMS.</p>` : ""}
       </div>
     </div>
-    ${index === 1 ? adSlot('Slot Iklan Antar Rubrik', '728 × 90', 'ad-between') : ''}
+    ${index === 1 ? adSlot('betweenCategories', 'Slot Iklan Antar Rubrik', '728 × 90', 'ad-between', config) : ''}
   </section>`;
 }
 
@@ -298,10 +384,10 @@ function homeTemplate({ posts, allPosts, pageNum, totalPages, config, U }) {
   const featured = fullList[0];
   const secondary = fullList.slice(1, 4);
   const latest = fullList.slice(4, 12);
-  const groups = getCategoryGroups(fullList, 6);
+  const groups = getCategoryGroups(fullList, 6, config);
 
   const content = `
-    ${adSlot('Slot Iklan Header', '970 × 90', 'ad-top')}
+    ${adSlot('header', 'Slot Iklan Header', '970 × 90', 'ad-top', config)}
     <section class="container home-hero">
       <div class="hero-kicker"><span>Highlight News</span><p>Berita pilihan redaksi dan update terbaru.</p></div>
       <div class="highlight-grid">
@@ -317,9 +403,9 @@ function homeTemplate({ posts, allPosts, pageNum, totalPages, config, U }) {
         ${pagination(pageNum, totalPages, U)}
       </div>
       <aside class="sidebar-column">
-        ${adSlot('Slot Iklan Sidebar', '300 × 250', 'ad-sidebar')}
+        ${adSlot('sidebar', 'Slot Iklan Sidebar', '300 × 250', 'ad-sidebar', config)}
         ${textList(fullList.slice(0, 6), config, U, 'Terpopuler')}
-        ${adSlot('Slot Iklan Native', '300 × 600', 'ad-sidebar tall')}
+        ${adSlot('native', 'Slot Iklan Native', '300 × 600', 'ad-sidebar tall', config)}
       </aside>
     </section>
 
@@ -358,12 +444,11 @@ function pagination(pageNum, totalPages, U) {
   return `<nav class="pagination">${prev}<span>Halaman ${pageNum} dari ${totalPages}</span>${next}</nav>`;
 }
 
-function injectAd(html) {
-  const marker = "</p>";
+function injectAd(html, config = {}) {
   let count = 0;
   return html.replace(/<\/p>/g, (m) => {
     count += 1;
-    if (count === 3) return m + adSlot('Slot Iklan Dalam Artikel', '728 × 90', 'ad-in-content');
+    if (count === 3) return m + adSlot('postContent', 'Slot Iklan Dalam Artikel', '728 × 90', 'ad-in-content', config);
     return m;
   });
 }
@@ -378,11 +463,11 @@ function postTemplate({ post, config, U, related, allPosts }) {
     : "";
 
   const content = `
-    ${adSlot('Slot Iklan Atas Artikel', '970 × 90', 'ad-top')}
+    ${adSlot('postTop', 'Slot Iklan Atas Artikel', '970 × 90', 'ad-top', config)}
     <article class="post-detail">
       <div class="container post-head-wrap">
         <header class="post-header">
-          ${categoryPill(post, U)}
+          ${categoryPill(post, U, config)}
           <h1>${esc(post.meta.title)}</h1>
           <p>${esc(post.excerpt)}</p>
           <div class="post-byline">
@@ -394,11 +479,11 @@ function postTemplate({ post, config, U, related, allPosts }) {
       <figure class="post-cover">${postImage(post, U)}</figure>
       <div class="container article-layout">
         <div class="article-main">
-          <div class="post-content">${injectAd(post.html)}</div>
+          <div class="post-content">${injectAd(post.html, config)}</div>
           ${tags}
         </div>
         <aside class="article-sidebar">
-          ${adSlot('Slot Iklan Artikel', '300 × 250', 'ad-sidebar')}
+          ${adSlot('sidebar', 'Slot Iklan Artikel', '300 × 250', 'ad-sidebar', config)}
           ${textList((allPosts || []).filter((p) => p.slug !== post.slug).slice(0, 5), config, U, 'Berita Pilihan')}
         </aside>
       </div>
@@ -423,7 +508,7 @@ function postTemplate({ post, config, U, related, allPosts }) {
     "@type": "BreadcrumbList",
     itemListElement: [
       { "@type": "ListItem", position: 1, name: "Beranda", item: U.baseUrl + "/" },
-      ...(post.meta.category ? [{ "@type": "ListItem", position: 2, name: post.meta.category, item: U.abs('/category/' + slugify(post.meta.category) + '/') }] : []),
+      ...(post.meta.category ? [{ "@type": "ListItem", position: 2, name: post.meta.category, item: U.abs('/category/' + categorySlug(post.meta.category, config) + '/') }] : []),
       { "@type": "ListItem", position: post.meta.category ? 3 : 2, name: post.meta.title, item: U.abs(post.permalink) },
     ],
   };
@@ -448,17 +533,17 @@ function archiveTemplate({ kind, term, posts, config, U, allPosts }) {
     <section class="page-head">
       <div class="container"><span>${esc(label)}</span><h1>${esc(term)}</h1><p>${posts.length} artikel tersedia.</p></div>
     </section>
-    ${adSlot('Slot Iklan Arsip', '970 × 90', 'ad-top')}
+    ${adSlot('archiveTop', 'Slot Iklan Arsip', '970 × 90', 'ad-top', config)}
     <section class="container content-layout archive-layout">
       <div class="main-column"><div class="post-grid">${cards}</div></div>
-      <aside class="sidebar-column">${adSlot('Slot Iklan Sidebar Arsip', '300 × 250', 'ad-sidebar')}${textList((allPosts || posts).slice(0, 6), config, U, 'Terbaru')}</aside>
+      <aside class="sidebar-column">${adSlot('sidebar', 'Slot Iklan Sidebar Arsip', '300 × 250', 'ad-sidebar', config)}${textList((allPosts || posts).slice(0, 6), config, U, 'Terbaru')}</aside>
     </section>`;
 
   return baseLayout({
     config, U, allPosts: allPosts || posts,
     title: `${label}: ${term}`,
-    description: `Kumpulan artikel dalam ${label.toLowerCase()} ${term}.`,
-    canonical: U.abs('/' + kind + '/' + slugify(term) + '/'),
+    description: kind === "category" && categoryDescription(term, config) ? categoryDescription(term, config) : `Kumpulan artikel dalam ${label.toLowerCase()} ${term}.`,
+    canonical: U.abs('/' + kind + '/' + (kind === 'category' ? categorySlug(term, config) : slugify(term)) + '/'),
     ogType: "website",
     content,
   });
@@ -518,6 +603,8 @@ module.exports = {
   pageTemplate,
   notFoundTemplate,
   slugify,
+  categorySlug,
+  normalizeCategories,
   formatDate,
   esc,
   attr,

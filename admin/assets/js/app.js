@@ -8,9 +8,23 @@ const App = (() => {
   /* ---------- State ---------- */
   const state = {
     articles: [],        // cache daftar artikel { name, path, sha, meta, ... }
+    categories: [],      // daftar kategori dari config.json
     editing: null,       // file yang sedang diedit (null = artikel baru)
+    editingCategoryIndex: null,
+    editingMenuIndex: null,
+    siteConfig: null,
     confirmCallback: null,
   };
+
+  const AD_SLOTS = [
+    { key: "header", label: "Header Atas", size: "970 × 90" },
+    { key: "sidebar", label: "Sidebar", size: "300 × 250" },
+    { key: "native", label: "Native / Sidebar Panjang", size: "300 × 600" },
+    { key: "betweenCategories", label: "Antar Rubrik", size: "728 × 90" },
+    { key: "postTop", label: "Atas Artikel", size: "970 × 90" },
+    { key: "postContent", label: "Dalam Artikel", size: "728 × 90" },
+    { key: "archiveTop", label: "Arsip / Kategori", size: "970 × 90" },
+  ];
 
   /* ---------- Shortcut DOM ---------- */
   const $ = (sel) => document.querySelector(sel);
@@ -61,7 +75,7 @@ const App = (() => {
   }
 
   function showPanel(name) {
-    ["list", "editor", "media", "settings"].forEach((p) => {
+    ["list", "editor", "categories", "menus", "ads", "media", "settings"].forEach((p) => {
       $(`#panel-${p}`).classList.toggle("hidden", p !== name);
     });
     // Sinkronkan highlight navigasi
@@ -177,12 +191,13 @@ const App = (() => {
   /* ============================================================
      MASUK APLIKASI
      ============================================================ */
-  function enterApp() {
+  async function enterApp() {
     const cfg = Config.getAll();
     $("#repo-badge").textContent = `${cfg.owner}/${cfg.repo} · ${cfg.branch}`;
     showView("app");
     showPanel("list");
     Editor.initMDE();
+    await loadSiteConfig({ silent: true });
     loadArticles();
   }
 
@@ -267,6 +282,7 @@ const App = (() => {
             <div class="article-meta">
               <span class="status-tag ${statusClass}">${escapeHtml(status)}</span>
               <span>${escapeHtml(date)}</span>
+              ${a.meta.category ? `<span>${escapeHtml(a.meta.category)}</span>` : ""}
               <span class="mono">${escapeHtml(a.name)}</span>
             </div>
           </div>
@@ -284,7 +300,8 @@ const App = (() => {
     if (!q) return renderArticles(state.articles);
     const filtered = state.articles.filter((a) => {
       const title = (a.meta.title || a.name).toLowerCase();
-      return title.includes(q) || a.name.toLowerCase().includes(q);
+      const category = (a.meta.category || "").toLowerCase();
+      return title.includes(q) || category.includes(q) || a.name.toLowerCase().includes(q);
     });
     renderArticles(filtered);
   }
@@ -330,6 +347,7 @@ const App = (() => {
     $("#meta-title").value = meta.title || "";
     $("#meta-slug").value = meta.slug || article.name.replace(/\.(md|markdown)$/i, "");
     $("#meta-status").value = (meta.status || "published").toLowerCase();
+    ensureCategoryOption(meta.category || "");
     $("#meta-category").value = meta.category || "";
     $("#meta-date").value = meta.date || "";
     $("#meta-author").value = meta.author || "";
@@ -666,34 +684,541 @@ const App = (() => {
     );
   }
 
-  /** Isi datalist saran kategori dari artikel yang ada */
-  function populateCategorySuggestions(articles) {
-    const cats = [...new Set(articles.map((a) => a.meta.category).filter(Boolean))];
-    const dl = $("#category-suggestions");
-    if (dl) dl.innerHTML = cats.map((c) => `<option value="${escapeHtml(c)}">`).join("");
-  }
-
   /* ============================================================
-     PENGATURAN SITUS (config.json)
+     KATEGORI + PENGATURAN SITUS (config.json)
      ============================================================ */
   const CONFIG_PATH = "config.json";
   let siteConfigSha = null;
 
-  async function loadSettings() {
-    showLoader("Memuat pengaturan…");
+  function slugifyText(text) {
+    if (Editor && typeof Editor.slugify === "function") return Editor.slugify(text);
+    return String(text || "")
+      .toLowerCase()
+      .trim()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^\w\s-]/g, "")
+      .replace(/[\s_-]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+  }
+
+  function normalizeCategory(item) {
+    const name = typeof item === "string" ? item : (item && item.name);
+    const cleanName = String(name || "").trim();
+    if (!cleanName) return null;
+    const rawSlug = typeof item === "object" && item && item.slug ? item.slug : cleanName;
+    return {
+      name: cleanName,
+      slug: slugifyText(rawSlug),
+      description: typeof item === "object" && item && item.description ? String(item.description).trim() : "",
+    };
+  }
+
+  function normalizeCategories(list) {
+    const seen = new Set();
+    return (Array.isArray(list) ? list : [])
+      .map(normalizeCategory)
+      .filter(Boolean)
+      .filter((cat) => {
+        const key = cat.name.toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+  }
+
+  function inferCategoriesFromArticles() {
+    const seen = new Set();
+    return state.articles
+      .map((a) => a.meta && a.meta.category)
+      .filter(Boolean)
+      .map((name) => normalizeCategory(name))
+      .filter((cat) => {
+        const key = cat.name.toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+  }
+
+  function normalizeMenuItem(item, index = 0) {
+    if (!item || typeof item !== "object") return null;
+    const label = String(item.label || "").trim();
+    const url = String(item.url || "").trim();
+    if (!label || !url) return null;
+    return {
+      label,
+      url,
+      order: Number.isFinite(Number(item.order)) ? Number(item.order) : index + 1,
+      newTab: Boolean(item.newTab),
+    };
+  }
+
+  function normalizeMenuItems(list) {
+    return (Array.isArray(list) ? list : [])
+      .map(normalizeMenuItem)
+      .filter(Boolean)
+      .sort((a, b) => (a.order || 0) - (b.order || 0));
+  }
+
+  function normalizeAds(ads) {
+    const next = { enabled: true, slots: {} };
+    if (ads && typeof ads === "object") {
+      next.enabled = ads.enabled !== false;
+    }
+    const sourceSlots = ads && ads.slots && typeof ads.slots === "object" ? ads.slots : {};
+    AD_SLOTS.forEach((slot) => {
+      const current = sourceSlots[slot.key] || {};
+      next.slots[slot.key] = {
+        label: current.label || slot.label,
+        size: current.size || slot.size,
+        enabled: current.enabled !== false,
+        html: typeof current.html === "string" ? current.html : "",
+      };
+    });
+    return next;
+  }
+
+  async function loadSiteConfig(options = {}) {
     try {
       const file = await API.getFile(CONFIG_PATH);
-      hideLoader();
       if (!file) {
-        toast("File config.json tidak ditemukan di repo.", "error");
-        return;
+        if (!options.silent) toast("File config.json tidak ditemukan di repo.", "error");
+        return null;
       }
       siteConfigSha = file.sha;
       let cfg;
       try {
         cfg = JSON.parse(file.content);
       } catch (_) {
-        toast("config.json tidak valid (gagal di-parse).", "error");
+        if (!options.silent) toast("config.json tidak valid (gagal di-parse).", "error");
+        return null;
+      }
+      cfg.categories = normalizeCategories(cfg.categories);
+      cfg.nav = normalizeMenuItems(cfg.nav);
+      cfg.ads = normalizeAds(cfg.ads);
+      if (!cfg.categories.length && state.articles.length) {
+        cfg.categories = inferCategoriesFromArticles();
+      }
+      state.siteConfig = cfg;
+      state.categories = cfg.categories;
+      populateCategorySuggestions(state.articles);
+      return cfg;
+    } catch (err) {
+      if (!options.silent) toast(`Gagal memuat config.json: ${err.message}`, "error");
+      return null;
+    }
+  }
+
+  async function ensureSiteConfigLoaded() {
+    if (state.siteConfig && siteConfigSha) return state.siteConfig;
+    return loadSiteConfig({ silent: true });
+  }
+
+  function getCategoryCounts() {
+    const counts = {};
+    state.articles.forEach((a) => {
+      const cat = a.meta && a.meta.category;
+      if (cat) counts[cat] = (counts[cat] || 0) + 1;
+    });
+    return counts;
+  }
+
+  function ensureCategoryOption(value) {
+    const select = $("#meta-category");
+    const name = String(value || "").trim();
+    if (!select || !name) return;
+    const exists = Array.from(select.options).some((opt) => opt.value === name);
+    if (!exists) {
+      const opt = document.createElement("option");
+      opt.value = name;
+      opt.textContent = `${name} (belum terdaftar)`;
+      select.appendChild(opt);
+    }
+  }
+
+  function populateCategorySuggestions(articles = []) {
+    const select = $("#meta-category");
+    if (!select) return;
+    const current = select.value;
+    let cats = state.categories && state.categories.length ? state.categories : inferCategoriesFromArticles();
+    select.innerHTML = `<option value="">Pilih kategori</option>` + cats
+      .map((cat) => `<option value="${escapeHtml(cat.name)}">${escapeHtml(cat.name)}</option>`)
+      .join("");
+    ensureCategoryOption(current);
+    select.value = current || "";
+  }
+
+  async function loadCategories() {
+    showLoader("Memuat kategori…");
+    await loadSiteConfig({ silent: true });
+    hideLoader();
+    renderCategoryList();
+    populateCategorySuggestions(state.articles);
+  }
+
+  function renderCategoryList() {
+    const wrap = $("#category-list");
+    if (!wrap) return;
+    const cats = state.categories || [];
+    const counts = getCategoryCounts();
+
+    if (!cats.length) {
+      wrap.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">◇</div>
+          <h3>Belum ada kategori</h3>
+          <p>Tambahkan kategori pertama agar pilihan rubrik muncul di editor artikel.</p>
+        </div>`;
+      return;
+    }
+
+    wrap.innerHTML = cats.map((cat, index) => {
+      const count = counts[cat.name] || 0;
+      return `
+        <article class="category-admin-item">
+          <div>
+            <div class="category-admin-title">${escapeHtml(cat.name)}</div>
+            <div class="category-admin-meta">
+              <span class="mono">/${escapeHtml(cat.slug)}/</span>
+              <span class="category-count-pill">${count} artikel</span>
+            </div>
+            ${cat.description ? `<div class="category-admin-desc">${escapeHtml(cat.description)}</div>` : ""}
+          </div>
+          <div class="category-admin-actions">
+            <button class="btn btn-ghost btn-small" onclick="App.editCategory(${index})">Edit</button>
+            <button class="btn btn-danger btn-small" onclick="App.askDeleteCategory(${index})">Hapus</button>
+          </div>
+        </article>`;
+    }).join("");
+  }
+
+  function resetCategoryForm() {
+    state.editingCategoryIndex = null;
+    $("#category-form-title").textContent = "Tambah Kategori";
+    $("#cat-name").value = "";
+    $("#cat-slug").value = "";
+    $("#cat-slug").dataset.touched = "";
+    $("#cat-description").value = "";
+    $("#btn-save-category").textContent = "Simpan Kategori";
+  }
+
+  function editCategory(index) {
+    const cat = state.categories[index];
+    if (!cat) return;
+    state.editingCategoryIndex = index;
+    $("#category-form-title").textContent = "Edit Kategori";
+    $("#cat-name").value = cat.name || "";
+    $("#cat-slug").value = cat.slug || "";
+    $("#cat-slug").dataset.touched = "1";
+    $("#cat-description").value = cat.description || "";
+    $("#btn-save-category").textContent = "Update Kategori";
+  }
+
+  async function saveCategory() {
+    await ensureSiteConfigLoaded();
+    const name = $("#cat-name").value.trim();
+    const slug = slugifyText($("#cat-slug").value.trim() || name);
+    const description = $("#cat-description").value.trim();
+    const index = state.editingCategoryIndex;
+
+    if (!name) {
+      toast("Nama kategori wajib diisi.", "error");
+      return;
+    }
+    if (!slug) {
+      toast("Slug kategori tidak valid.", "error");
+      return;
+    }
+
+    const duplicate = state.categories.find((cat, i) =>
+      i !== index && (cat.name.toLowerCase() === name.toLowerCase() || cat.slug === slug)
+    );
+    if (duplicate) {
+      toast("Nama atau slug kategori sudah digunakan.", "error");
+      return;
+    }
+
+    const next = { name, slug, description };
+    const action = index == null || index < 0 ? "Tambah" : "Update";
+    const previous = state.categories.slice();
+    if (index == null || index < 0) state.categories.push(next);
+    else state.categories[index] = next;
+
+    try {
+      await persistCategories(`${action} kategori: ${name}`);
+      toast(action === "Tambah" ? "Kategori ditambahkan." : "Kategori diperbarui.", "success");
+      resetCategoryForm();
+      renderCategoryList();
+      populateCategorySuggestions(state.articles);
+    } catch (err) {
+      state.categories = previous;
+      toast(`Gagal menyimpan kategori: ${err.message}`, "error");
+    }
+  }
+
+  function askDeleteCategory(index) {
+    const cat = state.categories[index];
+    if (!cat) return;
+    const count = getCategoryCounts()[cat.name] || 0;
+    const extra = count ? ` Ada ${count} artikel yang masih memakai kategori ini; artikel tersebut tidak ikut diubah otomatis.` : "";
+    confirmModal(
+      "Hapus kategori?",
+      `Kategori "${cat.name}" akan dihapus dari config.json.${extra}`,
+      "Hapus",
+      () => deleteCategory(index)
+    );
+  }
+
+  async function deleteCategory(index) {
+    await ensureSiteConfigLoaded();
+    const cat = state.categories[index];
+    if (!cat) return;
+    const previous = state.categories.slice();
+    state.categories.splice(index, 1);
+    showLoader("Menghapus kategori…");
+    try {
+      await persistCategories(`Hapus kategori: ${cat.name}`);
+      hideLoader();
+      toast("Kategori dihapus.", "success");
+      resetCategoryForm();
+      renderCategoryList();
+      populateCategorySuggestions(state.articles);
+    } catch (err) {
+      state.categories = previous;
+      hideLoader();
+      toast(`Gagal menghapus kategori: ${err.message}`, "error");
+    }
+  }
+
+  async function persistCategories(message) {
+    const cfg = await ensureSiteConfigLoaded();
+    if (!cfg) throw new Error("config.json belum bisa dimuat.");
+    cfg.categories = normalizeCategories(state.categories);
+    state.siteConfig = cfg;
+    const json = JSON.stringify(cfg, null, 2) + "\n";
+    const res = await API.saveFile(CONFIG_PATH, json, message || "Update kategori via CMS", siteConfigSha);
+    siteConfigSha = res.content ? res.content.sha : siteConfigSha;
+  }
+
+  /* ============================================================
+     MENU MANAGER
+     ============================================================ */
+  async function loadMenus() {
+    showLoader("Memuat menu…");
+    await loadSiteConfig({ silent: true });
+    hideLoader();
+    resetMenuForm();
+    renderMenuList();
+  }
+
+  function renderMenuList() {
+    const wrap = $("#menu-list");
+    if (!wrap) return;
+    const menus = normalizeMenuItems((state.siteConfig && state.siteConfig.nav) || []);
+
+    if (!menus.length) {
+      wrap.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">☰</div>
+          <h3>Belum ada menu</h3>
+          <p>Tambahkan menu pertama agar navigasi utama tampil di website.</p>
+        </div>`;
+      return;
+    }
+
+    wrap.innerHTML = menus.map((item, index) => `
+      <article class="category-admin-item menu-admin-item">
+        <div>
+          <div class="category-admin-title">${escapeHtml(item.label)}</div>
+          <div class="category-admin-meta">
+            <span class="mono">${escapeHtml(item.url)}</span>
+            <span class="category-count-pill">Urutan ${escapeHtml(item.order || index + 1)}</span>
+            ${item.newTab ? '<span class="category-count-pill">Tab baru</span>' : ''}
+          </div>
+        </div>
+        <div class="category-admin-actions">
+          <button class="btn btn-ghost btn-small" onclick="App.editMenu(${index})">Edit</button>
+          <button class="btn btn-danger btn-small" onclick="App.askDeleteMenu(${index})">Hapus</button>
+        </div>
+      </article>`).join("");
+  }
+
+  function resetMenuForm() {
+    state.editingMenuIndex = null;
+    const title = $("#menu-form-title");
+    if (!title) return;
+    title.textContent = "Tambah Menu";
+    $("#menu-label").value = "";
+    $("#menu-url").value = "";
+    $("#menu-order").value = "";
+    $("#menu-newtab").checked = false;
+    $("#btn-save-menu").textContent = "Simpan Menu";
+  }
+
+  function editMenu(index) {
+    const cfg = state.siteConfig || {};
+    const menus = normalizeMenuItems(cfg.nav || []);
+    const item = menus[index];
+    if (!item) return;
+    state.editingMenuIndex = index;
+    $("#menu-form-title").textContent = "Edit Menu";
+    $("#menu-label").value = item.label || "";
+    $("#menu-url").value = item.url || "";
+    $("#menu-order").value = item.order || index + 1;
+    $("#menu-newtab").checked = Boolean(item.newTab);
+    $("#btn-save-menu").textContent = "Update Menu";
+  }
+
+  async function saveMenu() {
+    const cfg = await ensureSiteConfigLoaded();
+    if (!cfg) {
+      toast("config.json belum bisa dimuat.", "error");
+      return;
+    }
+
+    const label = $("#menu-label").value.trim();
+    const url = $("#menu-url").value.trim();
+    const order = parseInt($("#menu-order").value, 10) || ((cfg.nav || []).length + 1);
+    const newTab = $("#menu-newtab").checked;
+    const index = state.editingMenuIndex;
+
+    if (!label) {
+      toast("Label menu wajib diisi.", "error");
+      return;
+    }
+    if (!url) {
+      toast("URL menu wajib diisi.", "error");
+      return;
+    }
+
+    const menus = normalizeMenuItems(cfg.nav || []);
+    const next = { label, url, order, newTab };
+    const action = index == null || index < 0 ? "Tambah" : "Update";
+    if (index == null || index < 0) menus.push(next);
+    else menus[index] = next;
+    cfg.nav = normalizeMenuItems(menus).map((item, i) => ({
+      label: item.label,
+      url: item.url,
+      order: item.order || i + 1,
+      newTab: Boolean(item.newTab),
+    }));
+
+    showLoader("Menyimpan menu…");
+    try {
+      const json = JSON.stringify(cfg, null, 2) + "\n";
+      const res = await API.saveFile(CONFIG_PATH, json, `${action} menu: ${label}`, siteConfigSha);
+      hideLoader();
+      siteConfigSha = res.content ? res.content.sha : siteConfigSha;
+      state.siteConfig = cfg;
+      toast(action === "Tambah" ? "Menu ditambahkan." : "Menu diperbarui.", "success");
+      resetMenuForm();
+      renderMenuList();
+    } catch (err) {
+      hideLoader();
+      toast(`Gagal menyimpan menu: ${err.message}`, "error");
+    }
+  }
+
+  function askDeleteMenu(index) {
+    const cfg = state.siteConfig || {};
+    const item = normalizeMenuItems(cfg.nav || [])[index];
+    if (!item) return;
+    confirmModal(
+      "Hapus menu?",
+      `Menu "${item.label}" akan dihapus dari navigasi utama.`,
+      "Hapus",
+      () => deleteMenu(index)
+    );
+  }
+
+  async function deleteMenu(index) {
+    const cfg = await ensureSiteConfigLoaded();
+    if (!cfg) return;
+    const menus = normalizeMenuItems(cfg.nav || []);
+    const item = menus[index];
+    if (!item) return;
+    menus.splice(index, 1);
+    cfg.nav = menus.map((menu, i) => ({ ...menu, order: menu.order || i + 1 }));
+    showLoader("Menghapus menu…");
+    try {
+      const json = JSON.stringify(cfg, null, 2) + "\n";
+      const res = await API.saveFile(CONFIG_PATH, json, `Hapus menu: ${item.label}`, siteConfigSha);
+      hideLoader();
+      siteConfigSha = res.content ? res.content.sha : siteConfigSha;
+      state.siteConfig = cfg;
+      toast("Menu dihapus.", "success");
+      resetMenuForm();
+      renderMenuList();
+    } catch (err) {
+      hideLoader();
+      toast(`Gagal menghapus menu: ${err.message}`, "error");
+    }
+  }
+
+  /* ============================================================
+     ADS SETTINGS
+     ============================================================ */
+  async function loadAds() {
+    showLoader("Memuat pengaturan iklan…");
+    const cfg = await loadSiteConfig({ silent: true });
+    hideLoader();
+    if (!cfg) {
+      toast("File config.json tidak ditemukan atau tidak valid.", "error");
+      return;
+    }
+    const ads = normalizeAds(cfg.ads);
+    $("#ads-enabled").checked = ads.enabled !== false;
+    AD_SLOTS.forEach((slot) => {
+      const item = ads.slots[slot.key] || { enabled: true, html: "" };
+      const enabled = $(`#ad-${slot.key}-enabled`);
+      const html = $(`#ad-${slot.key}-html`);
+      if (enabled) enabled.checked = item.enabled !== false;
+      if (html) html.value = item.html || "";
+    });
+  }
+
+  async function saveAds() {
+    const cfg = await ensureSiteConfigLoaded();
+    if (!cfg) {
+      toast("config.json belum bisa dimuat.", "error");
+      return;
+    }
+
+    cfg.ads = {
+      enabled: $("#ads-enabled").checked,
+      slots: {},
+    };
+    AD_SLOTS.forEach((slot) => {
+      cfg.ads.slots[slot.key] = {
+        label: slot.label,
+        size: slot.size,
+        enabled: $(`#ad-${slot.key}-enabled`) ? $(`#ad-${slot.key}-enabled`).checked : true,
+        html: $(`#ad-${slot.key}-html`) ? $(`#ad-${slot.key}-html`).value : "",
+      };
+    });
+
+    showLoader("Menyimpan pengaturan iklan…");
+    try {
+      const json = JSON.stringify(cfg, null, 2) + "\n";
+      const res = await API.saveFile(CONFIG_PATH, json, "Update pengaturan iklan HTML via CMS", siteConfigSha);
+      hideLoader();
+      siteConfigSha = res.content ? res.content.sha : siteConfigSha;
+      state.siteConfig = cfg;
+      toast("Pengaturan iklan disimpan! Situs akan dibangun ulang otomatis.", "success");
+    } catch (err) {
+      hideLoader();
+      toast(`Gagal menyimpan iklan: ${err.message}`, "error");
+    }
+  }
+
+  async function loadSettings() {
+    showLoader("Memuat pengaturan…");
+    try {
+      const cfg = await loadSiteConfig({ silent: true });
+      hideLoader();
+      if (!cfg) {
+        toast("File config.json tidak ditemukan atau tidak valid.", "error");
         return;
       }
       const s = cfg.social || {};
@@ -709,8 +1234,6 @@ const App = (() => {
       $("#set-instagram").value = s.instagram || "";
       $("#set-linkedin").value = s.linkedin || "";
       $("#set-email").value = s.email || "";
-      // Simpan objek penuh agar field yang tak diedit tetap terjaga
-      state.siteConfig = cfg;
     } catch (err) {
       hideLoader();
       toast(`Gagal memuat pengaturan: ${err.message}`, "error");
@@ -791,6 +1314,9 @@ const App = (() => {
           newArticle();
         } else {
           showPanel(nav);
+          if (nav === "categories") loadCategories();
+          if (nav === "menus") loadMenus();
+          if (nav === "ads") loadAds();
           if (nav === "media") loadMedia();
           if (nav === "settings") loadSettings();
         }
@@ -803,6 +1329,14 @@ const App = (() => {
     $("#btn-cancel-edit").addEventListener("click", () => showPanel("list"));
     $("#btn-save-article").addEventListener("click", saveArticle);
     $("#btn-refresh-media").addEventListener("click", loadMedia);
+    $("#btn-refresh-categories").addEventListener("click", loadCategories);
+    $("#btn-save-category").addEventListener("click", saveCategory);
+    $("#btn-reset-category").addEventListener("click", resetCategoryForm);
+    $("#btn-refresh-menus").addEventListener("click", loadMenus);
+    $("#btn-save-menu").addEventListener("click", saveMenu);
+    $("#btn-reset-menu").addEventListener("click", resetMenuForm);
+    $("#btn-refresh-ads").addEventListener("click", loadAds);
+    $("#btn-save-ads").addEventListener("click", saveAds);
     $("#btn-save-settings").addEventListener("click", saveSettings);
     $("#btn-settings").addEventListener("click", () => {
       prefillSetup(null);
@@ -850,6 +1384,14 @@ const App = (() => {
     $("#btn-clear-featured-image").addEventListener("click", clearFeaturedImage);
     $("#meta-image").addEventListener("input", updateFeaturedImagePreview);
 
+    // Kategori
+    $("#cat-name").addEventListener("input", (e) => {
+      if (!$("#cat-slug").dataset.touched) $("#cat-slug").value = slugifyText(e.target.value);
+    });
+    $("#cat-slug").addEventListener("input", () => {
+      $("#cat-slug").dataset.touched = "1";
+    });
+
     // Modal konfirmasi
     $("#modal-cancel").addEventListener("click", closeModal);
     $("#modal-confirm-btn").addEventListener("click", () => {
@@ -875,6 +1417,10 @@ const App = (() => {
     insertImage,
     setFeaturedImage,
     copyText,
+    editCategory,
+    askDeleteCategory,
+    editMenu,
+    askDeleteMenu,
   };
 })();
 

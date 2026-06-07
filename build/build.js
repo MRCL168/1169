@@ -197,14 +197,22 @@ function build() {
 
   /* ---- Arsip kategori ---- */
   const categories = {};
+
+  // Kategori dari config.json tetap dibuat walau belum punya artikel,
+  // agar kategori yang ditambahkan dari admin langsung punya halaman arsip.
+  T.normalizeCategories(config, posts).forEach((cat) => {
+    categories[cat.name] = categories[cat.name] || [];
+  });
+
   posts.forEach((p) => {
     if (p.meta.category) {
       const key = p.meta.category;
       (categories[key] = categories[key] || []).push(p);
     }
   });
+
   Object.entries(categories).forEach(([term, list]) => {
-    writePage("category/" + T.slugify(term) + "/", T.archiveTemplate({ kind: "category", term, posts: list, config, U, allPosts: posts }));
+    writePage("category/" + T.categorySlug(term, config) + "/", T.archiveTemplate({ kind: "category", term, posts: list, config, U, allPosts: posts }));
   });
   console.log(`→ ${Object.keys(categories).length} kategori`);
 
@@ -269,7 +277,7 @@ function buildSitemap(posts, pages, categories, tags) {
   add(U.abs("/"), null, "1.0");
   posts.forEach((p) => add(U.abs(p.permalink), p.meta.date || null, "0.8"));
   pages.forEach((p) => add(U.abs(p.permalink), null, "0.5"));
-  Object.keys(categories).forEach((c) => add(U.abs("/category/" + T.slugify(c) + "/"), null, "0.5"));
+  Object.keys(categories).forEach((c) => add(U.abs("/category/" + T.categorySlug(c, config) + "/"), null, "0.5"));
   Object.keys(tags).forEach((t) => add(U.abs("/tag/" + T.slugify(t) + "/"), null, "0.4"));
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
