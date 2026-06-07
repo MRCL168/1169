@@ -116,15 +116,7 @@
   },
   "timezoneOffset": "+07:00",
   "homepage": {
-    "categoryBlocks": [
-      {
-        "category": "Nasional",
-        "title": "Nasional",
-        "enabled": false,
-        "order": 1,
-        "limit": 5
-      }
-    ]
+    "categoryBlocks": []
   },
   "footer": {
     "logo": "",
