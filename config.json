@@ -56,7 +56,13 @@
     }
   ],
   "footerText": "© {year} {title}. Semua hak cipta dilindungi.",
-  "categories": [],
+  "categories": [
+    {
+      "name": "Bisnis",
+      "slug": "bisnis",
+      "description": ""
+    }
+  ],
   "ads": {
     "enabled": true,
     "slots": {
