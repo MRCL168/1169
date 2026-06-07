@@ -76,7 +76,7 @@ const App = (() => {
   }
 
   function showPanel(name) {
-    ["list", "editor", "categories", "blocks", "menus", "ads", "media", "settings"].forEach((p) => {
+    ["list", "editor", "categories", "blocks", "menus", "ads", "footer", "media", "settings"].forEach((p) => {
       $(`#panel-${p}`).classList.toggle("hidden", p !== name);
     });
     // Sinkronkan highlight navigasi
@@ -507,6 +507,7 @@ const App = (() => {
               <button onclick="App.insertImage('${escapeHtml(relPath)}', '${escapeHtml(img.name)}')">Sisipkan</button>
               <button onclick="App.setFeaturedImage('${escapeHtml(relPath)}')">Jadikan Featured</button>
               <button onclick="App.setLogoImage('${escapeHtml(relPath)}')">Jadikan Logo</button>
+              <button onclick="App.setFooterLogoImage('${escapeHtml(relPath)}')">Jadikan Logo Footer</button>
               <button onclick="App.setFaviconImage('${escapeHtml(relPath)}')">Jadikan Favicon</button>
               <button onclick="App.copyText('${escapeHtml(relPath)}')">Salin path</button>
             </div>
@@ -522,6 +523,7 @@ const App = (() => {
     const uploadTarget = options.target || "media";
     const shouldSetFeatured = uploadTarget === "featured" || options.setFeatured === true;
     const shouldSetLogo = uploadTarget === "logo";
+    const shouldSetFooterLogo = uploadTarget === "footerLogo";
     const shouldSetFavicon = uploadTarget === "favicon";
 
     const allowedByMime = /^image\/(png|jpe?g|gif|webp|svg\+xml|x-icon|vnd\.microsoft\.icon)$/i.test(file.type || "");
@@ -535,7 +537,7 @@ const App = (() => {
       return null;
     }
 
-    showLoader(shouldSetFeatured ? "Mengunggah featured image…" : shouldSetLogo ? "Mengunggah logo…" : shouldSetFavicon ? "Mengunggah favicon…" : "Mengunggah gambar…");
+    showLoader(shouldSetFeatured ? "Mengunggah featured image…" : shouldSetLogo ? "Mengunggah logo…" : shouldSetFooterLogo ? "Mengunggah logo footer…" : shouldSetFavicon ? "Mengunggah favicon…" : "Mengunggah gambar…");
     try {
       const base64 = await fileToBase64(file);
       const safeName = sanitizeFileName(file.name);
@@ -555,6 +557,9 @@ const App = (() => {
       } else if (shouldSetLogo) {
         setBrandAsset("logo", publicPath);
         toast("Logo berhasil diunggah dan dipasang.", "success");
+      } else if (shouldSetFooterLogo) {
+        setFooterLogo(publicPath);
+        toast("Logo footer berhasil diunggah dan dipasang.", "success");
       } else if (shouldSetFavicon) {
         setBrandAsset("favicon", publicPath);
         toast("Favicon berhasil diunggah dan dipasang.", "success");
@@ -719,6 +724,53 @@ const App = (() => {
 
   function setFaviconImage(path) {
     setBrandAsset("favicon", path);
+  }
+
+  function updateFooterLogoPreview() {
+    const field = $("#set-footer-logo");
+    const img = $("#footer-logo-preview");
+    const empty = $("#footer-logo-empty");
+    if (!field || !img || !empty) return;
+    const value = field.value.trim();
+    if (!value) {
+      img.classList.add("hidden");
+      img.removeAttribute("src");
+      empty.classList.remove("hidden");
+      return;
+    }
+    img.src = imagePreviewUrl(value);
+    img.classList.remove("hidden");
+    empty.classList.add("hidden");
+  }
+
+  function setFooterLogo(path, options = {}) {
+    const field = $("#set-footer-logo");
+    if (!field) return;
+    field.value = normalizeImagePath(path);
+    updateFooterLogoPreview();
+    if (!options.noSwitch) showPanel("footer");
+    if (!options.silent) toast("Logo footer dipasang ke pengaturan footer.", "success");
+  }
+
+  function setFooterLogoImage(path) {
+    setFooterLogo(path);
+  }
+
+  function clearFooterLogo() {
+    const field = $("#set-footer-logo");
+    if (!field) return;
+    field.value = "";
+    updateFooterLogoPreview();
+    toast("Logo footer dikosongkan.", "info");
+  }
+
+  function normalizeFooterConfig(footer, cfg = {}) {
+    const source = footer && typeof footer === "object" ? footer : {};
+    return {
+      logo: source.logo || cfg.footerLogo || "",
+      description: source.description || cfg.footerDescription || cfg.description || cfg.tagline || "",
+      copyright: source.copyright || cfg.footerCopyright || cfg.footerText || "",
+    };
   }
 
   function clearBrandAsset(type) {
@@ -896,6 +948,7 @@ const App = (() => {
       cfg.homepage = normalizeHomepageConfig(cfg.homepage);
       cfg.nav = normalizeMenuItems(cfg.nav);
       cfg.ads = normalizeAds(cfg.ads);
+      cfg.footer = normalizeFooterConfig(cfg.footer, cfg);
       if (!cfg.categories.length && state.articles.length) {
         cfg.categories = inferCategoriesFromArticles();
       }
@@ -1496,6 +1549,55 @@ const App = (() => {
     }
   }
 
+
+
+  /* ============================================================
+     FOOTER SETTINGS
+     ============================================================ */
+  async function loadFooter() {
+    showLoader("Memuat pengaturan footer…");
+    const cfg = await loadSiteConfig({ silent: true });
+    hideLoader();
+    if (!cfg) {
+      toast("File config.json tidak ditemukan atau tidak valid.", "error");
+      return;
+    }
+    const footer = normalizeFooterConfig(cfg.footer, cfg);
+    $("#set-footer-logo").value = footer.logo || "";
+    $("#set-footer-description").value = footer.description || "";
+    $("#set-footer-copyright").value = footer.copyright || "";
+    updateFooterLogoPreview();
+  }
+
+  async function saveFooter() {
+    const cfg = await ensureSiteConfigLoaded();
+    if (!cfg) {
+      toast("config.json belum bisa dimuat.", "error");
+      return;
+    }
+
+    cfg.footer = Object.assign({}, cfg.footer, {
+      logo: normalizeImagePath($("#set-footer-logo").value.trim()),
+      description: $("#set-footer-description").value.trim(),
+      copyright: $("#set-footer-copyright").value.trim(),
+    });
+    // Tetap isi footerText agar kompatibel dengan template lama.
+    cfg.footerText = cfg.footer.copyright;
+
+    showLoader("Menyimpan pengaturan footer…");
+    try {
+      const json = JSON.stringify(cfg, null, 2) + "\n";
+      const res = await API.saveFile(CONFIG_PATH, json, "Update pengaturan footer via CMS", siteConfigSha);
+      hideLoader();
+      siteConfigSha = res.content ? res.content.sha : siteConfigSha;
+      state.siteConfig = cfg;
+      toast("Pengaturan footer disimpan! Situs akan dibangun ulang otomatis.", "success");
+    } catch (err) {
+      hideLoader();
+      toast(`Gagal menyimpan footer: ${err.message}`, "error");
+    }
+  }
+
   async function loadSettings() {
     showLoader("Memuat pengaturan…");
     try {
@@ -1617,6 +1719,7 @@ const App = (() => {
           if (nav === "blocks") loadBlocks();
           if (nav === "menus") loadMenus();
           if (nav === "ads") loadAds();
+          if (nav === "footer") loadFooter();
           if (nav === "media") loadMedia();
           if (nav === "settings") loadSettings();
         }
@@ -1640,6 +1743,15 @@ const App = (() => {
     $("#btn-reset-menu").addEventListener("click", resetMenuForm);
     $("#btn-refresh-ads").addEventListener("click", loadAds);
     $("#btn-save-ads").addEventListener("click", saveAds);
+    $("#btn-refresh-footer").addEventListener("click", loadFooter);
+    $("#btn-save-footer").addEventListener("click", saveFooter);
+    $("#btn-upload-footer-logo").addEventListener("click", () => $("#footer-logo-upload").click());
+    $("#footer-logo-upload").addEventListener("change", (e) => {
+      handleUpload(e.target.files[0], { target: "footerLogo" });
+      e.target.value = "";
+    });
+    $("#btn-clear-footer-logo").addEventListener("click", clearFooterLogo);
+    $("#set-footer-logo").addEventListener("input", updateFooterLogoPreview);
     $("#btn-save-settings").addEventListener("click", saveSettings);
     $("#btn-upload-logo").addEventListener("click", () => $("#logo-upload").click());
     $("#logo-upload").addEventListener("change", (e) => {
@@ -1738,6 +1850,7 @@ const App = (() => {
     insertImage,
     setFeaturedImage,
     setLogoImage,
+    setFooterLogoImage,
     setFaviconImage,
     copyText,
     editCategory,

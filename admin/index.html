@@ -125,6 +125,9 @@
         <button class="nav-item" data-nav="ads">
           <span class="nav-icon">▥</span> Iklan HTML
         </button>
+        <button class="nav-item" data-nav="footer">
+          <span class="nav-icon">▣</span> Footer
+        </button>
         <button class="nav-item" data-nav="media">
           <span class="nav-icon">▣</span> Media
         </button>
@@ -515,6 +518,57 @@
 
           <div class="meta-card meta-card-muted">
             <p class="settings-note">Catatan: kode iklan HTML akan dirender apa adanya di situs publik. Gunakan hanya kode dari sumber yang Anda percaya, misalnya Google AdSense atau penyedia iklan resmi.</p>
+          </div>
+        </div>
+      </div>
+
+
+
+      <!-- ---- PANEL: FOOTER ---- -->
+      <div id="panel-footer" class="panel hidden">
+        <header class="panel-header">
+          <div>
+            <h2 class="panel-title">Pengaturan Footer</h2>
+            <p class="panel-sub">Atur logo footer, deskripsi footer, dan teks copyright dari <code>config.json</code>.</p>
+          </div>
+          <div class="panel-actions">
+            <button class="btn btn-ghost btn-icon" id="btn-refresh-footer" title="Muat ulang">↻</button>
+            <button class="btn btn-primary" id="btn-save-footer">Simpan Footer</button>
+          </div>
+        </header>
+
+        <div class="settings-wrap">
+          <div class="meta-card">
+            <h3 class="meta-card-title">Brand Footer</h3>
+            <div class="field brand-asset-field">
+              <label for="set-footer-logo">Logo Footer</label>
+              <div class="brand-preview" id="footer-logo-preview-wrap">
+                <img id="footer-logo-preview" class="hidden" src="" alt="Preview logo footer" />
+                <div id="footer-logo-empty" class="brand-preview-empty">Belum ada logo footer</div>
+              </div>
+              <input type="text" id="set-footer-logo" placeholder="/public/images/logo-footer.png" />
+              <div class="featured-actions">
+                <button type="button" class="btn btn-primary btn-small" id="btn-upload-footer-logo">Upload Logo Footer</button>
+                <button type="button" class="btn btn-ghost btn-small" id="btn-clear-footer-logo">Hapus</button>
+              </div>
+              <input type="file" id="footer-logo-upload" class="visually-hidden-file" accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml" />
+              <small class="field-hint">Jika dikosongkan, footer akan memakai logo website utama. Disarankan PNG/SVG/WebP transparan.</small>
+            </div>
+          </div>
+
+          <div class="meta-card">
+            <h3 class="meta-card-title">Teks Footer</h3>
+            <div class="field">
+              <label for="set-footer-description">Deskripsi Footer</label>
+              <textarea id="set-footer-description" rows="4" placeholder="Deskripsi singkat media, fokus liputan, atau profil redaksi…"></textarea>
+              <small class="field-hint">Tampil di kolom pertama footer. Jika kosong, sistem memakai deskripsi situs.</small>
+            </div>
+            <div class="field">
+              <label for="set-footer-copyright">Teks Copyright</label>
+              <textarea id="set-footer-copyright" rows="3" placeholder="© {year} {title}. Semua hak cipta dilindungi."></textarea>
+              <small class="field-hint">Bisa memakai variabel <code>{year}</code>, <code>{title}</code>, dan <code>{author}</code>.</small>
+            </div>
+            <p class="settings-note">Footer akan diperbarui saat GitHub Actions membangun ulang situs setelah commit pengaturan.</p>
           </div>
         </div>
       </div>

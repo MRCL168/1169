@@ -217,14 +217,32 @@ function header(config, U, posts = []) {
   </header>`;
 }
 
+function renderFooterCopyright(config = {}) {
+  const year = String(new Date().getFullYear());
+  const footer = config.footer && typeof config.footer === "object" ? config.footer : {};
+  const fallback = config.footerText || `© {year} {title}. Semua hak cipta dilindungi.`;
+  return String(footer.copyright || fallback)
+    .replace(/\{year\}/g, year)
+    .replace(/\{title\}/g, config.title || "")
+    .replace(/\{author\}/g, config.author || config.title || "");
+}
+
 function footer(config, U, posts = []) {
-  const year = new Date().getFullYear();
+  const footerCfg = config.footer && typeof config.footer === "object" ? config.footer : {};
+  const footerLogo = footerCfg.logo || config.footerLogo || config.logo || "";
+  const footerDesc = footerCfg.description || config.footerDescription || config.description || config.tagline || "";
+  const logoMarkup = footerLogo
+    ? `<img class="footer-logo-img" src="${attr(assetUrl(footerLogo, U))}" alt="${attr(config.title)}">`
+    : `<span class="footer-logo-mark">${esc((config.title || 'G').trim().charAt(0).toUpperCase())}</span>`;
   return `
   <footer class="site-footer">
     <div class="container footer-grid">
       <div>
-        <div class="footer-title">${esc(config.title)}</div>
-        <p class="footer-desc">${esc(config.description || config.tagline || '')}</p>
+        <a href="${attr(U.url('/'))}" class="footer-brand" aria-label="${attr(config.title)}">
+          ${logoMarkup}
+          <span class="footer-title">${esc(config.title)}</span>
+        </a>
+        <p class="footer-desc">${esc(footerDesc)}</p>
         ${socialLinks(config)}
       </div>
       <div>
@@ -241,7 +259,7 @@ function footer(config, U, posts = []) {
       </div>
     </div>
     <div class="container footer-bottom">
-      <span>© ${year} ${esc(config.author || config.title)}. ${esc(config.footerText || '')}</span>
+      <span>${esc(renderFooterCopyright(config))}</span>
       <span>Powered by GitCMS News</span>
     </div>
   </footer>`;
