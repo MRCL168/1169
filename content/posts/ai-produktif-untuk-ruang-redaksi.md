@@ -1,13 +1,14 @@
 ---
 title: "AI Produktif untuk Ruang Redaksi: Membantu Riset Tanpa Menggantikan Keputusan Editor"
-slug: "ai-produktif-untuk-ruang-redaksi"
-date: "2026-06-05"
-author: "Tim Teknologi"
-category: "Teknologi"
-tags: [teknologi, ai, media]
-featured_image: "/public/images/news-teknologi.svg"
-excerpt: "Penggunaan AI di ruang redaksi semakin relevan untuk riset awal, pengelompokan data, dan efisiensi produksi, namun keputusan editorial tetap harus berada pada manusia."
-status: "published"
+slug: ai-produktif-untuk-ruang-redaksi
+date: 2026-06-05
+status: published
+highlight: true
+category: Teknologi
+author: Tim Teknologi
+tags: ["teknologi", "ai", "media"]
+excerpt: Penggunaan AI di ruang redaksi semakin relevan untuk riset awal, pengelompokan data, dan efisiensi produksi, namun keputusan editorial tetap harus berada pada manusia.
+featured_image: /public/images/news-teknologi.svg
 ---
 
 Pemanfaatan kecerdasan buatan di ruang redaksi mulai bergeser dari sekadar eksperimen menjadi alat kerja harian. AI dapat membantu menyusun ringkasan bahan, menemukan pola dalam dokumen panjang, membuat daftar pertanyaan awal, hingga mengelompokkan topik berdasarkan kategori.
