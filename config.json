@@ -137,13 +137,6 @@
         "enabled": false,
         "order": 3,
         "limit": 5
-      },
-      {
-        "category": "Lifestyle",
-        "title": "Lifestyle",
-        "enabled": false,
-        "order": 4,
-        "limit": 5
       }
     ]
   },
