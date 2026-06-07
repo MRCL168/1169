@@ -190,7 +190,7 @@
       {
         "category": "Transportasi",
         "title": "Transportasi",
-        "enabled": true,
+        "enabled": false,
         "order": 6,
         "limit": 5
       }
