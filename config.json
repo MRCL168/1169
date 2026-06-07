@@ -58,11 +58,6 @@
   "footerText": "© {year} {title}. Semua hak cipta dilindungi.",
   "categories": [
     {
-      "name": "Nasional",
-      "slug": "nasional",
-      "description": "Berita nasional, kebijakan publik, dan dinamika masyarakat."
-    },
-    {
       "name": "Bisnis",
       "slug": "bisnis",
       "description": "Kabar ekonomi, UMKM, pasar, dan strategi bisnis."
