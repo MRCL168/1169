@@ -183,7 +183,7 @@
       {
         "category": "Olahraga",
         "title": "Olahraga",
-        "enabled": true,
+        "enabled": false,
         "order": 5,
         "limit": 5
       },
