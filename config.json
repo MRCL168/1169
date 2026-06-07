@@ -116,11 +116,19 @@
   },
   "timezoneOffset": "+07:00",
   "homepage": {
-    "categoryBlocks": []
+    "categoryBlocks": [
+      {
+        "category": "Bisnis",
+        "title": "Bisnis",
+        "enabled": true,
+        "order": 1,
+        "limit": 5
+      }
+    ]
   },
   "footer": {
     "logo": "",
-    "description": "GitNews Pro adalah template portal berita berbasis GitHub CMS yang ringan, cepat, SEO-ready, dan mudah dikelola oleh redaksi tanpa database.",
+    "description": "DimensiNews.co.id adalah perusahaan media siber yang lahir pada Mei 2017 demi menjawab kebutuhan masyarakat pembaca berita dan memberikan informasi kepada publik.",
     "copyright": "© {year} {title}. Semua hak cipta dilindungi."
   }
 }
