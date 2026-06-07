@@ -58,11 +58,6 @@
   "footerText": "© {year} {title}. Semua hak cipta dilindungi.",
   "categories": [
     {
-      "name": "Bisnis",
-      "slug": "bisnis",
-      "description": "Kabar ekonomi, UMKM, pasar, dan strategi bisnis."
-    },
-    {
       "name": "Teknologi",
       "slug": "teknologi",
       "description": "Perkembangan teknologi, AI, keamanan data, dan transformasi digital."
