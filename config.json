@@ -25,12 +25,6 @@
       "newTab": false
     },
     {
-      "label": "Nasional",
-      "url": "/category/nasional/",
-      "order": 2,
-      "newTab": false
-    },
-    {
       "label": "Bisnis",
       "url": "/category/bisnis/",
       "order": 3,
